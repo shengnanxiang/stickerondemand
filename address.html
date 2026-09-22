@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>地址管理 · SOD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .addr-item { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; }
+  .addr-item + .addr-item { border-top: 1px solid var(--line); }
+  .addr-item.is-default .adr-name { color: var(--brand-deep); }
+</style>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="container-narrow page">
+  <div class="row between mb-16">
+    <div>
+      <h1 class="t-h1">地址管理</h1>
+      <p class="muted t-sm mt-4">最多可保存 20 个收货地址</p>
+    </div>
+    <button class="btn btn-primary btn-sm" id="btn-add"><span class="ico"></span>新增地址</button>
+  </div>
+
+  <div id="addr-list"></div>
+</main>
+
+<!-- 编辑弹窗 -->
+<div class="backdrop" id="modal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <span class="t-h3" id="m-title">新增地址</span>
+      <button class="ed-tool-btn" id="m-close"><span class="ico" id="i-mc"></span></button>
+    </div>
+    <div class="modal-body">
+      <div class="stack gap-16">
+        <div class="row gap-12">
+          <div class="field grow"><label class="label" for="f-name">收货人</label>
+            <input class="input" id="f-name" placeholder="怎么称呼"></div>
+          <div class="field grow"><label class="label" for="f-phone">手机号</label>
+            <input class="input" id="f-phone" type="tel" maxlength="11" placeholder="11 位手机号"></div>
+        </div>
+        <div class="field"><label class="label" for="f-region">所在地区</label>
+          <input class="input" id="f-region" placeholder="如：上海市 徐汇区"></div>
+        <div class="field"><label class="label" for="f-detail">详细地址</label>
+          <input class="input" id="f-detail" placeholder="街道、门牌号、单元室"></div>
+        <label class="checkbox"><input type="checkbox" id="f-default"><span>设为默认地址</span></label>
+        <span class="err hide" id="f-err"></span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" id="m-cancel">取消</button>
+      <button class="btn btn-primary btn-sm" id="m-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap"></div>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/pricing.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = UI.qs;
+  if (!UI.guard()) return;
+  UI.mountNav('');
+  $('#btn-add .ico').innerHTML = UI.icon('plus');
+  $('#i-mc').innerHTML = UI.icon('close');
+
+  var editingId = null;
+  var fromCheckout = UI.param('from') === 'checkout';
+
+  function render() {
+    var list = Store.addresses.all();
+    if (!list.length) {
+      $('#addr-list').innerHTML = '<div class="card">' + UI.empty('truck', '还没有收货地址',
+        '添加一个地址，下单时就能直接选。',
+        '<button class="btn btn-primary" id="empty-add">新增地址</button>') + '</div>';
+      var ea = $('#empty-add');
+      if (ea) ea.addEventListener('click', function () { openForm(null); });
+      return;
+    }
+    $('#addr-list').innerHTML = '<div class="card">' + list.map(function (a) {
+      return '<div class="addr-item' + (a.isDefault ? ' is-default' : '') + '">' +
+        '<div class="grow">' +
+          '<div class="row gap-8">' +
+            '<span class="t-sm strong adr-name">' + UI.escapeHtml(a.name) + '</span>' +
+            '<span class="t-sm muted">' + UI.escapeHtml(a.phone) + '</span>' +
+            (a.isDefault ? '<span class="pill pill-brand">默认</span>' : '') +
+          '</div>' +
+          '<div class="t-sm muted mt-4">' + UI.escapeHtml(a.region + ' ' + a.detail) + '</div>' +
+        '</div>' +
+        '<button class="btn btn-ghost btn-xs" data-use="' + a.id + '">选它</button>' +
+        '<button class="btn btn-outline btn-xs" data-edit="' + a.id + '">编辑</button>' +
+        '<button class="btn btn-danger btn-xs" data-del="' + a.id + '">删除</button>' +
+      '</div>';
+    }).join('') + '</div>';
+
+    UI.qsa('[data-edit]').forEach(function (b) {
+      b.addEventListener('click', function () { openForm(b.dataset.edit); });
+    });
+    UI.qsa('[data-del]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        Store.addresses.remove(b.dataset.del);
+        UI.toast('已删除地址');
+        render();
+      });
+    });
+    UI.qsa('[data-use]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var a = Store.addresses.get(b.dataset.use);
+        if (a) { a.isDefault = true; Store.addresses.upsert(a); UI.toast('已设为默认地址', 'ok'); render(); if (fromCheckout) location.href = 'checkout.html'; }
+      });
+    });
+  }
+
+  function openForm(id) {
+    editingId = id;
+    var a = id ? Store.addresses.get(id) : null;
+    $('#m-title').textContent = a ? '编辑地址' : '新增地址';
+    $('#f-name').value = a ? a.name : '';
+    $('#f-phone').value = a ? a.phone : '';
+    $('#f-region').value = a ? a.region : '';
+    $('#f-detail').value = a ? a.detail : '';
+    $('#f-default').checked = a ? !!a.isDefault : Store.addresses.all().length === 0;
+    $('#f-err').classList.add('hide');
+    $('#modal').hidden = false;
+  }
+
+  $('#btn-add').addEventListener('click', function () { openForm(null); });
+  $('#m-close').addEventListener('click', function () { $('#modal').hidden = true; });
+  $('#m-cancel').addEventListener('click', function () { $('#modal').hidden = true; });
+  $('#modal').addEventListener('click', function (e) { if (e.target === $('#modal')) $('#modal').hidden = true; });
+
+  $('#f-phone').addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 11);
+  });
+
+  $('#m-save').addEventListener('click', function () {
+    var name = $('#f-name').value.trim();
+    var phone = $('#f-phone').value.trim();
+    var region = $('#f-region').value.trim();
+    var detail = $('#f-detail').value.trim();
+    if (!name) return showErr('请填写收货人');
+    if (!/^1\d{10}$/.test(phone)) return showErr('请填写正确的 11 位手机号');
+    if (!region) return showErr('请填写所在地区');
+    if (!detail) return showErr('请填写详细地址');
+
+    Store.addresses.upsert({
+      id: editingId, name: name, phone: phone, region: region,
+      detail: detail, isDefault: $('#f-default').checked
+    });
+    $('#modal').hidden = true;
+    UI.toast('地址已保存', 'ok');
+    render();
+    if (fromCheckout) location.href = 'checkout.html';
+  });
+
+  function showErr(msg) {
+    var e = $('#f-err');
+    e.textContent = msg; e.classList.remove('hide');
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

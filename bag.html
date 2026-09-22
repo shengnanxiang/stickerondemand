@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>结算袋 · SOD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .bag-layout { display: grid; grid-template-columns: minmax(0,1fr) 340px; gap: 24px; align-items: start; }
+  @media (max-width: 960px) { .bag-layout { grid-template-columns: 1fr; } }
+  .summary-sticky { position: sticky; top: calc(var(--nav-h) + 20px); }
+  .bag-item { display: flex; gap: 16px; padding: 16px; align-items: center; }
+  .bag-item + .bag-item { border-top: 1px solid var(--line); }
+  .hook-bar {
+    display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: var(--r-md);
+    background: var(--brand-soft); border: 1px dashed #FFC4A6; color: var(--brand-deep);
+    font-size: 13px; font-weight: 700; line-height: 1.4;
+  }
+  .hook-bar.is-weak { background: var(--cream-100); border-color: var(--line-strong); color: var(--ink-2); }
+  .tier-hint { font-size: 12px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="container page">
+  <div class="row between mb-16">
+    <div>
+      <h1 class="t-h1">结算袋</h1>
+      <p class="muted t-sm mt-4">不同设计可以放在一起结算，按<b>总张数</b>累进计价</p>
+    </div>
+    <button class="btn btn-ghost btn-sm hide" id="btn-clear">清空结算袋</button>
+  </div>
+
+  <div id="bag-empty"></div>
+
+  <div class="bag-layout" id="bag-layout" hidden>
+    <!-- 左：清单 -->
+    <section>
+      <div class="card">
+        <div class="row between" style="padding:14px 16px;border-bottom:1px solid var(--line)">
+          <span class="t-h3">本次要印的作品</span>
+          <span class="t-sm muted" id="kind-count"></span>
+        </div>
+        <div id="bag-list"></div>
+      </div>
+
+      <div class="card card-pad mt-16">
+        <div class="t-h3 mb-8">价格是怎么算的</div>
+        <table class="rule-table" id="tier-table"></table>
+        <p class="tier-hint mt-12">
+          运费：只做 1 张收 5 元，满 2 张包邮。<br>
+          「第 5 张只要 5 块 9」指的是<b>第 5 张那一张</b>，不是平均价。
+        </p>
+      </div>
+    </section>
+
+    <!-- 右：计价 -->
+    <aside class="summary-sticky">
+      <div class="card card-pad">
+        <div class="t-h3 mb-12">结算明细</div>
+        <div class="row between mb-8">
+          <span class="t-sm muted">合计张数</span>
+          <span class="row gap-6"><span class="t-h2 brand-text" id="sum-n">0</span><span class="t-sm muted">张</span></span>
+        </div>
+        <div class="divider-dash" style="margin:10px 0"></div>
+        <div id="price-lines"></div>
+        <div class="price-total mt-12">
+          <span class="k">应付</span>
+          <span class="v"><span class="cur">¥</span><span id="sum-total">0.00</span></span>
+        </div>
+        <div id="hook-slot" class="mt-12"></div>
+        <button class="btn btn-primary btn-lg btn-block mt-16" id="btn-checkout">去下单</button>
+        <a class="btn btn-ghost btn-block mt-8" href="home.html">再做一个设计</a>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<div class="toast-wrap"></div>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/pricing.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = UI.qs;
+  if (!UI.guard()) return;
+  UI.mountNav('bag');
+
+  function render() {
+    var list = Store.bag.all();
+    var n = Store.bag.count();
+
+    $('#btn-clear').classList.toggle('hide', list.length === 0);
+    $('#bag-layout').hidden = list.length === 0;
+    $('#bag-empty').innerHTML = list.length ? '' :
+      '<div class="card">' + UI.empty('bag', '结算袋是空的',
+        '做完设计后点右上角的「加入结算袋」，不同设计可以凑在一起结算——总张数越多，每张越便宜。',
+        '<a class="btn btn-primary" href="editor.html">去做一张贴纸</a>') + '</div>';
+    if (!list.length) return;
+
+    $('#kind-count').textContent = list.length + ' 个设计';
+    $('#bag-list').innerHTML = list.map(function (b) {
+      return '<div class="bag-item">' +
+        '<div class="thumb-sm"><img src="' + b.thumb + '" alt=""></div>' +
+        '<div class="grow">' +
+          '<div class="t-h3">' + UI.escapeHtml(b.name) + '</div>' +
+          '<div class="t-tiny muted mt-4">' + (b.objects ? b.objects.length : 0) + ' 个图素</div>' +
+        '</div>' +
+        '<div class="stepper">' +
+          '<button data-minus="' + b.workId + '"' + (b.copies <= 1 ? ' disabled' : '') + '>−</button>' +
+          '<span class="val">' + b.copies + '</span>' +
+          '<button data-plus="' + b.workId + '">＋</button>' +
+        '</div>' +
+        '<button class="btn btn-ghost btn-sm" data-del="' + b.workId + '">删除</button>' +
+      '</div>';
+    }).join('');
+
+    UI.qsa('[data-minus]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        Store.bag.setCopies(b.dataset.minus, Store.bag.all().filter(function (x) { return x.workId === b.dataset.minus; })[0].copies - 1);
+        sync();
+      });
+    });
+    UI.qsa('[data-plus]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var it = Store.bag.all().filter(function (x) { return x.workId === b.dataset.plus; })[0];
+        Store.bag.setCopies(b.dataset.plus, it.copies + 1);
+        sync();
+      });
+    });
+    UI.qsa('[data-del]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        Store.bag.remove(b.dataset.del);
+        UI.toast('已移出结算袋');
+        sync();
+      });
+    });
+
+    // 阶梯表 + 命中高亮
+    $('#tier-table').innerHTML =
+      '<thead><tr><th>第几张</th><th>单价</th><th>本次张数</th></tr></thead><tbody>' +
+      Pricing.TIERS.map(function (t) {
+        var hit = false, cnt = 0;
+        if (t.to === Infinity) { cnt = Math.max(0, n - t.from + 1); hit = n >= t.from; }
+        else { cnt = Math.max(0, Math.min(n, t.to) - t.from + 1); hit = n >= t.from; }
+        return '<tr class="' + (hit ? 'is-hit' : '') + '">' +
+          '<td>' + (t.to === Infinity ? '第 ' + t.from + ' 张起' : '第 ' + t.from + '–' + t.to + ' 张') + '</td>' +
+          '<td class="strong">' + Pricing.fmt(t.price) + ' 元</td>' +
+          '<td>' + cnt + ' 张</td></tr>';
+      }).join('') + '</tbody>';
+
+    // 计价
+    var q = Pricing.quote(n, null);
+    $('#sum-n').textContent = n;
+    $('#price-lines').innerHTML =
+      '<div class="price-row"><span class="k">商品小计</span><span class="v">' + Pricing.fmtYuan(q.subtotal) + '</span></div>' +
+      '<div class="price-row mt-8"><span class="k">运费' + (q.shippingOriginal === 0 ? '（已满 2 张）' : '') + '</span>' +
+        '<span class="v">' + (q.shipping === 0 ? '包邮' : Pricing.fmtYuan(q.shipping)) + '</span></div>';
+    $('#sum-total').textContent = Pricing.fmt(q.total);
+
+    // 凑单话术
+    var h = Pricing.hook(n);
+    $('#hook-slot').innerHTML = h ? '<div class="hook-bar' + (h.strength === 'weak' ? ' is-weak' : '') + '">' +
+      UI.icon('sparkles') + '<span class="col">' +
+      '<span>' + UI.escapeHtml(h.text) + '</span>' +
+      (h.sub ? '<span class="t-tiny" style="font-weight:600;opacity:.8">' + UI.escapeHtml(h.sub) + '</span>' : '') +
+      '</span></div>' : '';
+  }
+
+  function sync() { UI.refreshBagBadge(); render(); }
+
+  $('#btn-checkout').addEventListener('click', function () {
+    if (!Store.bag.count()) return;
+    location.href = 'checkout.html';
+  });
+  $('#btn-clear').addEventListener('click', function () {
+    Store.bag.clear();
+    UI.toast('已清空结算袋');
+    sync();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

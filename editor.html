@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>编辑器 · SOD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/editor.css">
+</head>
+<body class="editor-body">
+
+<div class="ed-root">
+  <!-- ================= 顶部工具条 ================= -->
+  <div class="ed-top">
+    <div class="ed-top-left">
+      <button class="ed-back" id="btn-back"><span class="ico" id="i-back"></span>退出</button>
+      <span style="width:1px;height:20px;background:var(--line)"></span>
+      <input class="ed-title-input" id="ed-title" value="未命名" aria-label="作品名称">
+      <span class="ed-status" id="ed-status"><i class="dot"></i><span id="ed-status-text">已保存</span></span>
+    </div>
+    <div class="ed-top-right">
+      <button class="ed-tool-btn" id="btn-undo" title="撤销 (Ctrl+Z)"><span class="ico" id="i-undo"></span></button>
+      <button class="ed-tool-btn" id="btn-redo" title="重做 (Ctrl+Shift+Z)"><span class="ico" id="i-redo"></span></button>
+      <button class="btn btn-ghost btn-sm" id="btn-save"><span class="ico" id="i-save"></span>保存草稿</button>
+      <button class="btn btn-primary btn-sm" id="btn-add-bag">加入结算袋</button>
+    </div>
+  </div>
+
+  <!-- ================= 三栏主体 ================= -->
+  <div class="ed-main">
+    <!-- 左：素材面板 -->
+    <aside class="ed-left">
+      <div class="ed-tabs">
+        <button class="ed-tab is-active" data-p="upload"><span class="ico"></span>上传图</button>
+        <button class="ed-tab" data-p="asset"><span class="ico"></span>素材</button>
+        <button class="ed-tab" data-p="text"><span class="ico"></span>文字</button>
+        <button class="ed-tab" data-p="tpl"><span class="ico"></span>模板</button>
+      </div>
+      <div class="ed-panels">
+
+        <!-- 上传图 -->
+        <div class="ed-panel" id="p-upload">
+          <div class="stack gap-12">
+            <div class="ed-upload" id="drop-zone">
+              <span class="ico" id="i-upload"></span>
+              <div class="t-sm strong">点击上传照片</div>
+              <div class="ed-upload-tip">也可以把图片拖到这里<br>支持 JPEG · PNG，可一次选多张</div>
+            </div>
+            <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp" multiple hidden>
+            <div class="notice">
+              <span class="notice-icon" id="i-np"></span>
+              <span>上传后可一键 AI 抠图。<b>抠图会把原图传到云端处理，处理完即删除</b>，不会留存或挪作他用。</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 素材 -->
+        <div class="ed-panel" id="p-asset" hidden>
+          <div class="stack gap-12">
+            <div>
+              <div class="ed-prop-label mb-8">颜色</div>
+              <div class="ed-swatch-row" id="swatches"></div>
+            </div>
+            <div>
+              <div class="ed-prop-label mb-8">通用素材（无 IP）</div>
+              <div class="ed-asset-grid" id="asset-grid"></div>
+            </div>
+            <p class="ed-upload-tip">点一下就加到画布上，之后可以改颜色、大小和描边。</p>
+          </div>
+        </div>
+
+        <!-- 文字 -->
+        <div class="ed-panel" id="p-text" hidden>
+          <div class="stack gap-12">
+            <div>
+              <div class="ed-prop-label mb-8">点一下添加</div>
+              <button class="btn btn-outline btn-block" id="btn-add-text">添加文字</button>
+            </div>
+            <div>
+              <div class="ed-prop-label mb-8">预设样式</div>
+              <div class="stack gap-8" id="text-presets"></div>
+            </div>
+            <p class="ed-upload-tip">字体均为可商用通用字体。</p>
+          </div>
+        </div>
+
+        <!-- 起点模板 -->
+        <div class="ed-panel" id="p-tpl" hidden>
+          <div class="stack gap-12">
+            <div class="ed-prop-label mb-8">从这里开始的布局框架</div>
+            <div class="stack gap-8" id="tpl-list"></div>
+            <p class="ed-upload-tip">模板只放位置框，不占位具体的图，加完把框删掉就行。</p>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- 中：画布 -->
+    <div class="ed-stage">
+      <div class="ed-canvas-wrap" id="canvas-wrap">
+        <canvas id="ed-canvas"></canvas>
+        <div class="ed-float" id="ed-float" hidden>
+          <button id="fb-up" title="上移一层"><span class="ico"></span></button>
+          <button id="fb-down" title="下移一层"><span class="ico"></span></button>
+          <button id="fb-copy" title="复制"><span class="ico"></span></button>
+          <button id="fb-del" class="danger" title="删除"><span class="ico"></span></button>
+        </div>
+      </div>
+
+      <!-- 底部控件 -->
+      <div class="ed-bottom">
+        <div class="ed-zoom">
+          <button id="btn-zoom-out"><span class="ico" id="i-zo"></span></button>
+          <span class="v" id="zoom-val">100%</span>
+          <button id="btn-zoom-in"><span class="ico" id="i-zi"></span></button>
+        </div>
+        <button class="ed-toggle" id="btn-fit"><span class="ico" id="i-fit"></span>适配画布</button>
+        <span style="flex:1"></span>
+        <button class="ed-toggle" id="btn-ruler"><span class="ico" id="i-ruler"></span>标尺</button>
+        <button class="ed-toggle is-on" id="btn-safe"><span class="ico" id="i-safe"></span>安全区</button>
+        <button class="ed-toggle" id="btn-cut"><span class="ico" id="i-cut"></span>模切轮廓</button>
+        <button class="ed-toggle" id="btn-bg"><span class="ico" id="i-bg"></span>纸底色</button>
+        <span class="t-tiny muted" id="canvas-hint">滚轮缩放 · 空白处拖拽可平移</span>
+      </div>
+    </div>
+
+    <!-- 右：属性面板 -->
+    <aside class="ed-right" id="ed-right" hidden>
+      <div class="ed-prop-head">
+        <span class="ed-prop-title" id="prop-title">属性</span>
+        <button class="ed-tool-btn" id="btn-props-close"><span class="ico" id="i-close"></span></button>
+      </div>
+      <div class="ed-prop-body" id="prop-body"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ================= 抠图对话框 ================= -->
+<div class="ed-matting-backdrop" id="matte" hidden>
+  <div class="ed-matting">
+    <div class="ed-matting-head">
+      <div>
+        <div class="t-h3">处理图片</div>
+        <div class="t-tiny muted" id="matte-sub">选一种方式，满意后再放进画布</div>
+      </div>
+      <button class="ed-tool-btn" id="matte-close"><span class="ico" id="i-mclose"></span></button>
+    </div>
+    <div class="ed-matting-body" id="matte-body"></div>
+  </div>
+</div>
+
+<!-- ================= 通用弹层 ================= -->
+<div class="backdrop" id="modal" hidden>
+  <div class="ed-mini-modal" id="modal-content"></div>
+</div>
+
+<div class="toast-wrap"></div>
+
+<script src="assets/js/store.js"></script>
+<script src="assets/js/pricing.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/matting.js"></script>
+<script src="assets/js/editor.js"></script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>支付 · SOD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .pay-wrap { display: grid; grid-template-columns: 300px minmax(0,1fr); gap: 32px; align-items: start; }
+  @media (max-width: 880px) { .pay-wrap { grid-template-columns: 1fr; } }
+  .pay-amount { font-size: 40px; font-weight: 800; color: var(--brand-deep); letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+  .pay-amount .cur { font-size: 22px; margin-right: 2px; }
+  .pay-method {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    padding: 14px 16px; border-radius: var(--r-md); border: 1.5px solid var(--line-strong); background: #fff;
+    transition: border-color .16s var(--ease), background .16s var(--ease);
+  }
+  .pay-method.is-active { border-color: var(--brand); background: var(--brand-soft); }
+  .pay-logo { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: #fff; flex: none; }
+  .pay-logo.wx { background: #2AAC52; }
+  .pay-logo.ali { background: #1677FF; }
+  .pay-count { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--danger); }
+</style>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="container-narrow page">
+  <div class="row gap-12 mb-16">
+    <a class="btn btn-ghost btn-sm" href="bag.html"><span class="ico"></span>返回</a>
+  </div>
+
+  <div class="card card-pad-lg">
+    <div class="center" id="pay-head"></div>
+
+    <div class="divider mt-24"></div>
+
+    <div class="pay-wrap mt-24">
+      <!-- 左：二维码 -->
+      <div>
+        <div class="center">
+          <div class="qr-box"><img id="pay-qr" src="" alt="收款二维码" style="width:100%;height:100%"></div>
+          <p class="t-sm muted mt-12" id="qr-tip">扫码支付</p>
+        </div>
+      </div>
+
+      <!-- 右：支付方式与操作 -->
+      <div class="stack gap-12">
+        <div class="t-h3">支付方式</div>
+        <button class="pay-method is-active" data-pay="wx">
+          <span class="pay-logo wx" id="l-wx"></span>
+          <span class="col grow"><span class="t-sm strong">微信支付</span>
+          <span class="t-tiny muted">推荐</span></span>
+          <span class="pill pill-mint">已选</span>
+        </button>
+        <button class="pay-method" data-pay="ali">
+          <span class="pay-logo ali" id="l-ali"></span>
+          <span class="col grow"><span class="t-sm strong">支付宝</span>
+          <span class="t-tiny muted">跳转至支付宝</span></span>
+        </button>
+
+        <div class="notice notice-sun" style="display:flex;gap:10px">
+          <span class="notice-icon" id="i-info"></span>
+          <span>原型演示：没有真实收款通道，点下方按钮即可模拟支付完成。</span>
+        </div>
+
+        <button class="btn btn-primary btn-xl btn-block mt-8" id="btn-paid">模拟支付成功</button>
+        <button class="btn btn-ghost btn-block" id="btn-later">稍后再付</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="toast-wrap"></div>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/pricing.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = UI.qs;
+  if (!UI.guard()) return;
+  UI.mountNav('bag');
+  UI.qsa('.row .ico').forEach(function (i) { i.innerHTML = UI.icon('chevronL'); });
+  $('#l-wx').innerHTML = UI.icon('wechat');
+  $('#l-ali').innerHTML = UI.icon('qr');
+  $('#i-info').innerHTML = UI.icon('info');
+
+  var order = Store.orders.get(UI.param('id'));
+  if (!order) {
+    location.href = 'orders.html';
+    return;
+  }
+
+  $('#pay-head').innerHTML =
+    '<div class="t-sm muted">请支付</div>' +
+    '<div class="pay-amount mt-4"><span class="cur">¥</span>' + Pricing.fmt(order.amount) + '</div>' +
+    '<div class="row gap-8 mt-8" style="justify-content:center">' +
+      '<span class="t-tiny muted">订单号 ' + order.id + '</span>' +
+      '<span class="t-tiny muted">·</span>' +
+      '<span class="t-tiny muted">支付剩余 <span class="pay-count" id="pay-count">15:00</span></span>' +
+    '</div>';
+
+  var method = 'wx';
+  function setQR() {
+    var color = method === 'wx' ? '#2AAC52' : '#1677FF';
+    $('#pay-qr').src = Store.assets.svgURI(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#fff"/>' +
+      '<g fill="' + color + '">' +
+      '<path d="M8 8h9v9H8zM23 8h9v9h-9zM8 23h9v9H8z"/>' +
+      '<path d="M83 8h9v9h-9zM68 8h9v9h-9zM83 23h9v9h-9z"/>' +
+      '<path d="M8 83h9v9H8zM23 83h9v9h-9zM8 68h9v9H8z"/>' +
+      Array.apply(null, { length: 196 }).map(function (_, i) {
+        var x = i % 14, y = Math.floor(i / 14);
+        var v = Math.abs(Math.sin(x * 12.9898 + y * 78.233 + (method === 'wx' ? 0 : 3.3)) * 43758.5453) % 1;
+        if (v < 0.5) return '';
+        if (x < 5 && y < 5) return ''; if (x > 8 && y < 5) return ''; if (x < 5 && y > 8) return '';
+        return '<rect x="' + (30 + x * 3.2) + '" y="' + (30 + y * 3.2) + '" width="2.8" height="2.8"/>';
+      }).join('') +
+      '</g></svg>');
+    $('#qr-tip').textContent = (method === 'wx' ? '微信' : '支付宝') + '扫码支付';
+  }
+  setQR();
+
+  UI.qsa('[data-pay]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      method = b.dataset.pay;
+      UI.qsa('[data-pay]').forEach(function (x) {
+        x.classList.remove('is-active');
+        var p = x.querySelector('.pill'); if (p) p.remove();
+      });
+      b.classList.add('is-active');
+      b.insertAdjacentHTML('beforeend', '<span class="pill pill-mint">已选</span>');
+      setQR();
+    });
+  });
+
+  // 支付倒计时
+  var left = 15 * 60;
+  var t = setInterval(function () {
+    left--;
+    if (left <= 0) {
+      clearInterval(t);
+      $('#pay-count').textContent = '订单已超时';
+      $('#btn-paid').disabled = true;
+      return;
+    }
+    var m = Math.floor(left / 60), s = left % 60;
+    $('#pay-count').textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }, 1000);
+
+  $('#btn-paid').addEventListener('click', function () {
+    clearInterval(t);
+    Store.orders.pay(order.id);
+    UI.toast('支付成功', 'ok');
+    setTimeout(function () { location.href = 'order-detail.html?id=' + order.id; }, 600);
+  });
+  $('#btn-later').addEventListener('click', function () {
+    UI.toast('订单已保留，可在「我的订单」继续支付');
+    setTimeout(function () { location.href = 'orders.html'; }, 600);
+  });
+})();
+</script>
+</body>
+</html>

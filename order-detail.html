@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>订单详情 · SOD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .od-item { display: flex; gap: 14px; padding: 12px 0; align-items: center; }
+  .od-item + .od-item { border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="container-narrow page" id="page"></main>
+
+<div class="toast-wrap"></div>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/pricing.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = UI.qs;
+  if (!UI.guard()) return;
+  UI.mountNav('orders');
+
+  var order = Store.orders.get(UI.param('id'));
+  if (!order) { location.href = 'orders.html'; return; }
+
+  var FLOW = [
+    { k: 'pending', t: '待支付', d: '提交订单，等待付款' },
+    { k: 'making',  t: '制作中', d: '已付款，厂商开始印刷模切' },
+    { k: 'shipped', t: '已发货', d: '快递已揽收' },
+    { k: 'done',    t: '已完成', d: '已签收' }
+  ];
+  var flowIdx = { pending: 0, making: 1, shipped: 2, done: 3 };
+  var cur = flowIdx[order.status];
+
+  function timeline() {
+    if (order.status === 'closed') {
+      return '<div class="notice notice-danger" style="display:flex;gap:10px">' +
+        '<span class="notice-icon">' + UI.icon('alert') + '</span>' +
+        '<span><b>订单已关闭</b><br>超过支付时限未完成付款，可以重新下单。</span></div>';
+    }
+    return '<div class="timeline">' + FLOW.map(function (s, i) {
+      var cls = i < cur ? ' is-done' : (i === cur ? ' is-current' : '');
+      var time = '';
+      if (i === 0) time = Store.util.fmtTime(order.createdAt);
+      if (i === 1 && order.paidAt) time = Store.util.fmtTime(order.paidAt);
+      if (i === 2 && order.logistics && order.logistics.tracks.length) {
+        time = Store.util.fmtTime(order.logistics.tracks[order.logistics.tracks.length - 1].t);
+      }
+      return '<div class="tl-item' + cls + '"><div class="tl-node"></div>' +
+        '<div class="col"><span class="t-sm strong">' + s.t + '</span>' +
+        '<span class="t-tiny muted">' + s.d + (time ? ' · ' + time : '') + '</span></div></div>';
+    }).join('') + '</div>';
+  }
+
+  function actions() {
+    if (order.status === 'pending') {
+      return '<a class="btn btn-primary btn-block" href="payment.html?id=' + order.id + '">去支付</a>' +
+        '<button class="btn btn-ghost btn-block mt-8" data-cancel>取消订单</button>';
+    }
+    if (order.status === 'shipped') {
+      return '<a class="btn btn-primary btn-block" href="logistics.html?id=' + order.id + '">查看物流</a>';
+    }
+    if (order.status === 'done') {
+      return '<button class="btn btn-primary btn-block" data-again>再来一单</button>';
+    }
+    if (order.status === 'closed') {
+      return '<button class="btn btn-primary btn-block" data-again>重新下单</button>';
+    }
+    return '<div class="notice notice-mint" style="display:flex;gap:10px">' +
+      '<span class="notice-icon">' + UI.icon('info') + '</span>' +
+      '<span>正在排产，完成后会发货。</span></div>';
+  }
+
+  $('#page').innerHTML =
+    '<div class="row gap-12 mb-16">' +
+      '<a class="btn btn-ghost btn-sm" href="orders.html"><span class="ico" id="i-b"></span>我的订单</a>' +
+    '</div>' +
+
+    '<div class="card card-pad">' +
+      '<div class="row between">' +
+        '<div><div class="t-h2">' + UI.escapeHtml(Store.STATUS_TEXT[order.status]) + '</div>' +
+        '<div class="t-tiny muted mt-4">' + order.id + ' · ' + Store.util.fmtTime(order.createdAt) + '</div></div>' +
+        UI.statusPill(order.status) +
+      '</div>' +
+      '<div class="divider"></div>' +
+      timeline() +
+    '</div>' +
+
+    (order.logistics ? '<div class="card card-pad mt-16">' +
+      '<div class="row between"><span class="t-h3">物流信息</span>' +
+      '<a class="btn btn-ghost btn-xs" href="logistics.html?id=' + order.id + '">详情</a></div>' +
+      '<div class="notice notice-sky mt-12" style="display:flex;gap:10px;background:var(--sky-soft);border-color:#C9DFF1;color:#2F6E9F">' +
+        '<span class="notice-icon">' + UI.icon('truck') + '</span>' +
+        '<span><b>' + order.logistics.company + '</b> ' + order.logistics.no + '<br>' +
+        UI.escapeHtml(order.logistics.tracks[0].d) + '</span></div>' +
+    '</div>' : '') +
+
+    '<div class="card card-pad mt-16">' +
+      '<span class="t-h3">收货信息</span>' +
+      '<div class="mt-8">' +
+        '<div class="t-sm strong">' + UI.escapeHtml(order.address.name) + ' ' +
+          '<span class="muted">' + UI.escapeHtml(order.address.phone) + '</span></div>' +
+        '<div class="t-sm muted mt-4">' + UI.escapeHtml(order.address.region + ' ' + order.address.detail) + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="card card-pad mt-16">' +
+      '<span class="t-h3">作品清单</span>' +
+      order.items.map(function (it) {
+        return '<div class="od-item">' +
+          '<div class="thumb-sm"><img src="' + it.thumb + '" alt=""></div>' +
+          '<div class="grow"><div class="t-sm strong">' + UI.escapeHtml(it.name) + '</div>' +
+          '<div class="t-tiny muted">' + it.copies + ' 份</div></div>' +
+        '</div>';
+      }).join('') +
+      (order.note ? '<div class="notice mt-12" style="display:flex;gap:10px">' +
+        '<span class="notice-icon">' + UI.icon('edit') + '</span>' +
+        '<span>备注：' + UI.escapeHtml(order.note) + '</span></div>' : '') +
+    '</div>' +
+
+    '<div class="card card-pad mt-16">' +
+      '<span class="t-h3">结算明细</span>' +
+      '<div class="mt-12">' +
+        '<div class="price-row"><span class="k">商品小计（共 ' + order.n + ' 张）</span>' +
+        '<span class="v">' + Pricing.fmtYuan(order.subtotal || Pricing.quote(order.n).subtotal) + '</span></div>' +
+        '<div class="price-row mt-8"><span class="k">运费</span>' +
+        '<span class="v">' + ((order.shipping || 0) === 0 ? '包邮' : Pricing.fmtYuan(order.shipping)) + '</span></div>' +
+        (order.couponDiscount ? '<div class="price-row mt-8 is-discount">' +
+          '<span class="k">' + (order.couponType === 'freeship' ? '免运费券' : '通用券') + '</span>' +
+          '<span class="v">' + Pricing.fmtSigned(-order.couponDiscount) + '</span></div>' : '') +
+        '<div class="price-total mt-12">' +
+          '<span class="k">实付</span>' +
+          '<span class="v"><span class="cur">¥</span>' + Pricing.fmt(order.amount) + '</span></div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="od-actions">' + actions() + '</div>';
+
+  $('#i-b').innerHTML = UI.icon('chevronL');
+
+  var ce = $('[data-cancel]');
+  if (ce) ce.addEventListener('click', function () {
+    Store.orders.setStatus(order.id, 'closed');
+    UI.toast('订单已关闭');
+    setTimeout(function () { location.reload(); }, 500);
+  });
+  var ag = $('[data-again]');
+  if (ag) ag.addEventListener('click', function () {
+    var w = null;
+    Store.works.history().forEach(function (x) { if (x.name === order.items[0].name) w = x; });
+    if (!w) {
+      w = { id: Store.util.uid('w'), name: order.items[0].name, kind: 'draft',
+             thumb: order.items[0].thumb, objects: [], updatedAt: Date.now() };
+      Store.works.upsert(w);
+    }
+    Store.bag.add(w.id, 1);
+    UI.refreshBagBadge();
+    UI.toast('已加入结算袋', 'ok');
+    setTimeout(function () { location.href = 'bag.html'; }, 600);
+  });
+})();
+</script>
+</body>
+</html>

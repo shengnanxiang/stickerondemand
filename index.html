@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录 · SOD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .auth-wrap { min-height: 100vh; display: grid; grid-template-columns: 1.05fr .95fr; }
+  .auth-brand {
+    position: relative; overflow: hidden; color: #fff; padding: 56px 60px;
+    background: linear-gradient(150deg, #FF9257 0%, #FF7A45 42%, #EC5A24 100%);
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .auth-brand::after {
+    content: ''; position: absolute; width: 460px; height: 460px; right: -180px; bottom: -200px;
+    border-radius: 50%; background: rgba(255, 255, 255, .09);
+  }
+  .auth-brand::before {
+    content: ''; position: absolute; width: 240px; height: 240px; right: 40px; top: -110px;
+    border-radius: 50%; background: rgba(255, 255, 255, .10);
+  }
+  .auth-brand-inner { position: relative; z-index: 1; max-width: 460px; }
+  .brand-logo { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 800; letter-spacing: .4px; }
+  .brand-logo .logo { width: 40px; height: 40px; border-radius: 13px; background: rgba(255,255,255,.22); display: grid; place-items: center; }
+  .auth-lead { font-size: 40px; line-height: 1.22; font-weight: 800; letter-spacing: -.8px; margin: 34px 0 16px; }
+  .auth-sub { font-size: 15px; line-height: 1.72; color: rgba(255,255,255,.90); max-width: 400px; }
+  .auth-points { margin-top: 36px; display: flex; flex-direction: column; gap: 13px; }
+  .auth-point { display: flex; align-items: center; gap: 11px; font-size: 14.5px; font-weight: 600; }
+  .auth-point i {
+    width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.24);
+    display: grid; place-items: center; flex: none; font-style: normal; font-size: 12px;
+  }
+  .auth-side { display: grid; place-items: center; padding: 48px 32px; background: var(--cream-50); }
+  .auth-card { width: 100%; max-width: 384px; }
+  .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--cream-200); border-radius: var(--r-full); margin-bottom: 22px; }
+  .auth-tab { height: 38px; border-radius: var(--r-full); font-weight: 700; color: var(--ink-3); display: flex; align-items: center; justify-content: center; gap: 7px; transition: background .16s var(--ease), color .16s var(--ease); }
+  .auth-tab.is-active { background: #fff; color: var(--ink); box-shadow: var(--sh-1); }
+  .pane[hidden] { display: none; }
+  .qr-stage { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 14px 0 6px; }
+  .qr-frame { width: 190px; height: 190px; padding: 12px; background: #fff; border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--sh-1); }
+  .agree { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: var(--ink-3); line-height: 1.6; }
+  .agree input { width: 16px; height: 16px; accent-color: var(--brand); margin-top: 3px; flex: none; }
+  @media (max-width: 900px) {
+    .auth-wrap { grid-template-columns: 1fr; }
+    .auth-brand { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="auth-wrap">
+  <!-- 左：品牌 -->
+  <aside class="auth-brand">
+    <div class="auth-brand-inner">
+      <div class="brand-logo"><span class="logo" id="b-logo"></span><span>SOD</span></div>
+      <h1 class="auth-lead">把你喜欢的东西，<br>变成能贴出去的实体</h1>
+      <p class="auth-sub">上传照片，AI 自动抠图，自己在浏览器里排版。不用买机器、不用凑起订量，做好的贴纸直接送到手边。</p>
+      <div class="auth-points">
+        <div class="auth-point"><i>1</i>一张起订，想做几张做几张</div>
+        <div class="auth-point"><i>2</i>第 5 张只要 5 块 9，做得越多每张越便宜</div>
+        <div class="auth-point"><i>3</i>满 2 张自动包邮</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 右：表单 -->
+  <main class="auth-side">
+    <div class="auth-card">
+      <h2 class="t-h1" style="margin-bottom:6px">欢迎回来</h2>
+      <p class="muted t-sm" style="margin-bottom:24px">登录后继续创作，作品会自动保存</p>
+
+      <div class="auth-tabs" role="tablist">
+        <button class="auth-tab is-active" data-pane="wechat" role="tab"><span class="ico"></span>微信登录</button>
+        <button class="auth-tab" data-pane="phone" role="tab"><span class="ico"></span>手机号登录</button>
+      </div>
+
+      <!-- 微信 -->
+      <section class="pane" id="pane-wechat">
+        <div class="qr-stage">
+          <div class="qr-frame"><div id="qr-wechat"></div></div>
+          <p class="t-sm muted center">使用微信扫码登录<br><span class="t-tiny">二维码 5 分钟内有效</span></p>
+        </div>
+        <div class="notice notice-mint" style="margin:6px 0 14px">
+          <span class="notice-icon" id="n-iW"></span>
+          <span>原型演示：没有真实微信授权，点下方按钮即可模拟扫码完成。<b id="wx-credit">新用户登录会送 1 张免运费券</b>。</span>
+        </div>
+        <label class="agree" style="margin-bottom:14px">
+          <input type="checkbox" id="agree-wx">
+          <span>我已阅读并同意 <a href="#" class="brand-text">《用户协议》</a> 与 <a href="#" class="brand-text">《隐私政策》</a>（含 AI 抠图上传说明）</span>
+        </label>
+        <button class="btn btn-primary btn-lg btn-block" id="btn-wx-done">模拟扫码成功</button>
+      </section>
+
+      <!-- 手机号 -->
+      <section class="pane" id="pane-phone" hidden>
+        <div class="stack gap-16">
+          <div class="field">
+            <label class="label" for="phone">手机号</label>
+            <input class="input" id="phone" type="tel" inputmode="numeric" maxlength="11" placeholder="请输入 11 位手机号" autocomplete="tel">
+            <span class="err hide" id="err-phone"></span>
+          </div>
+          <div class="field">
+            <label class="label" for="code">验证码</label>
+            <div class="input-group">
+              <input class="input" id="code" type="text" inputmode="numeric" maxlength="6" placeholder="6 位验证码" style="flex:1">
+              <button class="btn btn-outline" id="btn-code" style="flex:none;width:126px">获取验证码</button>
+            </div>
+            <span class="err hide" id="err-code"></span>
+          </div>
+          <div class="notice notice-mint">
+            <span class="notice-icon" id="n-iP"></span>
+            <span>原型演示：任意 6 位数字均可验证通过。</span>
+          </div>
+          <label class="agree">
+            <input type="checkbox" id="agree-phone">
+            <span>我已阅读并同意 <a href="#" class="brand-text">《用户协议》</a> 与 <a href="#" class="brand-text">《隐私政策》</a></span>
+          </label>
+          <button class="btn btn-primary btn-lg btn-block" id="btn-login">登录 / 注册</button>
+        </div>
+      </section>
+
+      <p class="t-tiny muted center" style="margin-top:20px">首次登录即完成注册，并自动发放 1 张免运费券</p>
+    </div>
+  </main>
+</div>
+
+<div class="toast-wrap"></div>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = UI.qs;
+  $('#b-logo').innerHTML = UI.icon('logo');
+  $('#qr-wechat').innerHTML = '<img src="' + Store.assets.svgURI(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#fff"/>' +
+    '<g fill="#302A24">' +
+    '<path d="M8 8h9v9H8zM8 23h9v9H8zM23 8h9v9h-9z"/>' +
+    '<path d="M83 8h9v9h-9zM83 23h9v9h-9zM68 8h9v9h-9z"/>' +
+    '<path d="M8 83h9v9H8zM8 68h9v9H8zM23 83h9v9h-9z"/>' +
+    Array.apply(null, { length: 100 }).map(function (_, i) {
+      var x = i % 10, y = Math.floor(i / 10);
+      var v = Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
+      if (v < 0.52) return '';
+      if (x < 4 && y < 4) return ''; if (x > 5 && y < 4) return ''; if (x < 4 && y > 5) return '';
+      return '<rect x="' + (30 + x * 5) + '" y="' + (30 + y * 5) + '" width="4" height="4"/>';
+    }).join('') +
+    '</g></svg>'
+  ) + '" alt="微信登录二维码" style="width:100%;height:100%">';
+  $('#n-iW').innerHTML = UI.icon('info');
+  $('#n-iP').innerHTML = UI.icon('info');
+
+  // Tab 切换
+  UI.qsa('.auth-tab').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      UI.qsa('.auth-tab').forEach(function (b) { b.classList.remove('is-active'); });
+      btn.classList.add('is-active');
+      $('#pane-wechat').hidden = btn.dataset.pane !== 'wechat';
+      $('#pane-phone').hidden = btn.dataset.pane !== 'phone';
+    });
+  });
+
+  function finishLogin(nickname, phone) {
+    Store.auth.login(nickname, phone || '');
+    UI.toast('登录成功，已发放 1 张免运费券', 'ok');
+    var back = UI.param('redirect');
+    setTimeout(function () { location.href = back ? decodeURIComponent(back) : 'home.html'; }, 500);
+  }
+
+  // 微信
+  $('#btn-wx-done').addEventListener('click', function () {
+    if (!$('#agree-wx').checked) { UI.toast('请先勾选同意用户协议', 'warn'); return; }
+    finishLogin('小鹿');
+  });
+
+  // 验证码倒计时
+  var timer = null;
+  $('#btn-code').addEventListener('click', function () {
+    var v = $('#phone').value.trim();
+    if (!/^1\d{10}$/.test(v)) {
+      $('#err-phone').textContent = '请输入正确的 11 位手机号';
+      $('#err-phone').classList.remove('hide'); $('#phone').classList.add('is-error');
+      return;
+    }
+    $('#err-phone').classList.add('hide'); $('#phone').classList.remove('is-error');
+    var sec = 60, btn = $('#btn-code');
+    btn.disabled = true; btn.textContent = sec + 's 后重发';
+    UI.toast('验证码已发送至 ' + v.replace(/^(\d{3})\d{4}/, '$1****'), 'ok');
+    clearInterval(timer);
+    timer = setInterval(function () {
+      sec--;
+      if (sec <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = '重新获取'; }
+      else btn.textContent = sec + 's 后重发';
+    }, 1000);
+  });
+
+  $('#phone').addEventListener('input', function () {
+    $('#err-phone').classList.add('hide'); $('#phone').classList.remove('is-error');
+    this.value = this.value.replace(/\D/g, '').slice(0, 11);
+  });
+  $('#code').addEventListener('input', function () {
+    $('#err-code').classList.add('hide'); $('#code').classList.remove('is-error');
+    this.value = this.value.replace(/\D/g, '').slice(0, 6);
+  });
+
+  $('#btn-login').addEventListener('click', function () {
+    var ok = true;
+    var phone = $('#phone').value.trim(), code = $('#code').value.trim();
+    if (!/^1\d{10}$/.test(phone)) {
+      $('#err-phone').textContent = '请输入正确的 11 位手机号';
+      $('#err-phone').classList.remove('hide'); $('#phone').classList.add('is-error'); ok = false;
+    }
+    if (code.length !== 6) {
+      $('#err-code').textContent = '请输入 6 位验证码';
+      $('#err-code').classList.remove('hide'); $('#code').classList.add('is-error'); ok = false;
+    }
+    if (!ok) return;
+    if (!$('#agree-phone').checked) { UI.toast('请先勾选同意用户协议', 'warn'); return; }
+    finishLogin('用户' + phone.slice(-4), phone);
+  });
+
+  // 回车提交
+  $('#code').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#btn-login').click(); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的订单 · SOD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .o-card { padding: 16px 18px; }
+  .o-head { display: flex; align-items: center; gap: 10px; }
+  .o-note { font-size: 12.5px; color: var(--ink-3); }
+  .o-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+</style>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="container-narrow page">
+  <h1 class="t-h1 mb-16">我的订单</h1>
+
+  <div class="tabs wrap mb-16">
+    <button class="tab is-active" data-k="all">全部</button>
+    <button class="tab" data-k="pending">待支付</button>
+    <button class="tab" data-k="making">制作中</button>
+    <button class="tab" data-k="shipped">已发货</button>
+    <button class="tab" data-k="done">已完成</button>
+    <button class="tab" data-k="closed">已关闭</button>
+  </div>
+
+  <div id="order-area"></div>
+</main>
+
+<div class="toast-wrap"></div>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/pricing.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = UI.qs;
+  if (!UI.guard()) return;
+  UI.mountNav('orders');
+
+  var filter = 'all';
+
+  UI.qsa('.tab').forEach(function (t) {
+    t.addEventListener('click', function () {
+      UI.qsa('.tab').forEach(function (x) { x.classList.remove('is-active'); });
+      t.classList.add('is-active');
+      filter = t.dataset.k;
+      render();
+    });
+  });
+
+  function nextAction(o) {
+    if (o.status === 'pending') return '<a class="btn btn-primary btn-sm" href="payment.html?id=' + o.id + '">去支付</a>' +
+      '<a class="btn btn-outline btn-sm" href="order-detail.html?id=' + o.id + '">订单详情</a>';
+    if (o.status === 'shipped') return '<a class="btn btn-primary btn-sm" href="logistics.html?id=' + o.id + '">查看物流</a>' +
+      '<a class="btn btn-outline btn-sm" href="order-detail.html?id=' + o.id + '">订单详情</a>';
+    if (o.status === 'making') return '<a class="btn btn-outline btn-sm" href="order-detail.html?id=' + o.id + '">订单详情</a>';
+    if (o.status === 'done') return '<button class="btn btn-outline btn-sm" data-again="' + o.id + '">再来一单</button>' +
+      '<a class="btn btn-ghost btn-sm" href="order-detail.html?id=' + o.id + '">订单详情</a>';
+    return '<button class="btn btn-outline btn-sm" data-again="' + o.id + '">再来一单</button>';
+  }
+
+  function statusNote(o) {
+    if (o.status === 'pending') return '超时未支付会自动关闭，记得完成付款';
+    if (o.status === 'making') return '已送达厂商，预计 2 个工作日内完成';
+    if (o.status === 'shipped') return '快递在路上，签收后订单完成';
+    if (o.status === 'done') return '已完成，欢迎再来';
+    if (o.status === 'closed') return '订单已关闭（超时未支付）';
+    return '';
+  }
+
+  function render() {
+    var all = Store.orders.all();
+    var list = filter === 'all' ? all : all.filter(function (o) { return o.status === filter; });
+
+    if (!list.length) {
+      $('#order-area').innerHTML = '<div class="card">' + UI.empty('order',
+        filter === 'all' ? '还没有订单' : '这里还没有订单',
+        filter === 'all' ? '做完设计加入结算袋，就能下单了。' : '',
+        '<a class="btn btn-primary" href="editor.html">去做一张贴纸</a>') + '</div>';
+      return;
+    }
+
+    $('#order-area').innerHTML = '<div class="stack gap-12">' + list.map(function (o) {
+      var thumb = (o.items[0] && o.items[0].thumb) || '';
+      return '<div class="card o-card">' +
+        '<div class="o-head">' + UI.statusPill(o.status) +
+          '<span class="o-note grow">' + o.id + ' · ' + Store.util.fmtTime(o.createdAt) + '</span>' +
+        '</div>' +
+        '<div class="row gap-16 mt-12">' +
+          '<div class="thumb-sm"><img src="' + thumb + '" alt=""></div>' +
+          '<div class="grow">' +
+            '<div class="t-sm strong">' + UI.escapeHtml((o.items[0] && o.items[0].name) || '贴纸') +
+              (o.items.length > 1 ? ' 等 ' + o.items.length + ' 件' : '') + '</div>' +
+            '<div class="t-tiny muted mt-4">共 ' + o.n + ' 张 · 实付 ' + Pricing.fmtYuan(o.amount) + '</div>' +
+            '<div class="t-tiny muted mt-4">' + UI.escapeHtml(statusNote(o)) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="o-actions">' + nextAction(o) + '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+
+    UI.qsa('[data-again]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var o = Store.orders.get(b.dataset.again);
+        if (!o) return;
+        // 复用设计：按名字找回作品，找不到就新建一个同名草稿
+        var w = null;
+        Store.works.history().forEach(function (x) { if (x.name === o.items[0].name) w = x; });
+        if (!w) {
+          w = { id: Store.util.uid('w'), name: o.items[0].name, kind: 'draft',
+                 thumb: o.items[0].thumb, objects: [], updatedAt: Date.now() };
+          Store.works.upsert(w);
+        }
+        Store.bag.add(w.id, 1);
+        UI.refreshBagBadge();
+        UI.toast('已加入结算袋', 'ok');
+        setTimeout(function () { location.href = 'bag.html'; }, 600);
+      });
+    });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

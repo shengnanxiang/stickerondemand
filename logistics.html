@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>物流详情 · SOD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="container-narrow page" id="page"></main>
+
+<div class="toast-wrap"></div>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/pricing.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = UI.qs;
+  if (!UI.guard()) return;
+  UI.mountNav('orders');
+
+  var order = Store.orders.get(UI.param('id'));
+  if (!order || !order.logistics) { location.href = 'orders.html'; return; }
+  var lg = order.logistics;
+
+  $('#page').innerHTML =
+    '<div class="row gap-12 mb-16">' +
+      '<a class="btn btn-ghost btn-sm" href="order-detail.html?id=' + order.id + '"><span class="ico" id="i-b"></span>订单详情</a>' +
+    '</div>' +
+
+    '<div class="card card-pad">' +
+      '<div class="row gap-12">' +
+        '<span class="pill pill-sky">运输中</span>' +
+        '<span class="t-sm strong">' + UI.escapeHtml(lg.company) + '</span>' +
+      '</div>' +
+      '<div class="row between mt-12">' +
+        '<div>' +
+          '<div class="t-tiny muted">运单号</div>' +
+          '<div class="t-sm strong">' + lg.no + '</div>' +
+        '</div>' +
+        '<button class="btn btn-outline btn-xs" id="btn-copy">复制单号</button>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="card card-pad mt-16">' +
+      '<span class="t-h3">物流轨迹</span>' +
+      '<div class="timeline mt-16">' +
+        lg.tracks.slice().sort(function (a, b) { return b.t - a.t; }).map(function (t, i) {
+          return '<div class="tl-item' + (i === 0 ? ' is-current' : ' is-done') + '">' +
+            '<div class="tl-node"></div>' +
+            '<div class="col">' +
+              '<span class="t-sm' + (i === 0 ? ' strong' : ' muted-2') + '">' + UI.escapeHtml(t.d) + '</span>' +
+              '<span class="t-tiny muted mt-4">' + Store.util.fmtTime(t.t) + '</span>' +
+            '</div></div>';
+        }).join('') +
+      '</div>' +
+    '</div>' +
+
+    '<div class="card card-pad mt-16">' +
+      '<span class="t-h3">收货信息</span>' +
+      '<div class="mt-8">' +
+        '<div class="t-sm strong">' + UI.escapeHtml(order.address.name) + ' ' +
+          '<span class="muted">' + UI.escapeHtml(order.address.phone) + '</span></div>' +
+        '<div class="t-sm muted mt-4">' + UI.escapeHtml(order.address.region + ' ' + order.address.detail) + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="notice mt-16" style="display:flex;gap:10px">' +
+      '<span class="notice-icon">' + UI.icon('info') + '</span>' +
+      '<span>签收后订单会自动完成。物流长时间没更新可以联系我们。</span>' +
+    '</div>' +
+
+    '<div class="od-actions" style="margin-top:24px">' +
+      '<button class="btn btn-primary btn-block" id="btn-sign">模拟签收</button>' +
+    '</div>';
+
+  $('#i-b').innerHTML = UI.icon('chevronL');
+
+  $('#btn-copy').addEventListener('click', function () {
+    if (navigator.clipboard) navigator.clipboard.writeText(lg.no);
+    UI.toast('运单号已复制', 'ok');
+  });
+
+  $('#btn-sign').addEventListener('click', function () {
+    Store.orders.setStatus(order.id, 'done');
+    UI.toast('已签收，订单完成', 'ok');
+    setTimeout(function () { location.href = 'order-detail.html?id=' + order.id; }, 600);
+  });
+})();
+</script>
+</body>
+</html>

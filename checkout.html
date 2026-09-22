@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>确认订单 · SOD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .ck-layout { display: grid; grid-template-columns: minmax(0,1fr) 340px; gap: 24px; align-items: start; }
+  @media (max-width: 960px) { .ck-layout { grid-template-columns: 1fr; } }
+  .summary-sticky { position: sticky; top: calc(var(--nav-h) + 20px); }
+  .addr-card {
+    display: block; width: 100%; text-align: left; padding: 14px 16px; border-radius: var(--r-md);
+    border: 1.5px solid var(--line-strong); background: #fff; transition: border-color .16s var(--ease), background .16s var(--ease);
+  }
+  .addr-card.is-active { border-color: var(--brand); background: var(--brand-soft); }
+  .ck-item { display: flex; gap: 14px; padding: 12px 0; align-items: center; }
+  .ck-item + .ck-item { border-top: 1px solid var(--line); }
+  .coupon-card {
+    display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+    padding: 14px 16px; border-radius: var(--r-md); border: 1.5px solid var(--line-strong); background: #fff;
+    transition: border-color .16s var(--ease), background .16s var(--ease);
+  }
+  .coupon-card.is-active { border-color: var(--brand); background: var(--brand-soft); }
+  .coupon-card[disabled] { opacity: .55; background: var(--cream-100); }
+  .coupon-amount { width: 64px; flex: none; text-align: center; color: var(--brand); }
+  .coupon-amount b { font-size: 22px; font-weight: 800; line-height: 1; }
+  .hook-bar {
+    display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: var(--r-md);
+    background: var(--brand-soft); border: 1px dashed #FFC4A6; color: var(--brand-deep);
+    font-size: 13px; font-weight: 700; line-height: 1.4;
+  }
+  .hook-bar.is-weak { background: var(--cream-100); border-color: var(--line-strong); color: var(--ink-2); }
+</style>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="container page">
+  <div class="row gap-12 mb-16">
+    <a class="btn btn-ghost btn-sm" href="bag.html"><span class="ico"></span>返回结算袋</a>
+    <h1 class="t-h1">确认订单</h1>
+  </div>
+
+  <div class="ck-layout">
+    <section class="stack gap-16">
+      <!-- 收货地址 -->
+      <div class="card card-pad">
+        <div class="row between mb-12">
+          <span class="t-h3">收货地址</span>
+          <a class="btn btn-ghost btn-xs" href="address.html?from=checkout">地址管理</a>
+        </div>
+        <div id="addr-area"></div>
+      </div>
+
+      <!-- 作品清单 -->
+      <div class="card card-pad">
+        <div class="row between mb-8">
+          <span class="t-h3">本次要印的作品</span>
+          <a class="btn btn-ghost btn-xs" href="bag.html">调整份数</a>
+        </div>
+        <div id="ck-items"></div>
+      </div>
+
+      <!-- 优惠券 -->
+      <div class="card card-pad">
+        <div class="row between mb-12">
+          <span class="t-h3">优惠券</span>
+          <span class="t-tiny muted" id="coupon-count"></span>
+        </div>
+        <div class="stack gap-8" id="coupon-area"></div>
+      </div>
+
+      <!-- 备注 -->
+      <div class="card card-pad">
+        <span class="t-h3">订单备注</span>
+        <textarea class="textarea mt-8" id="note" placeholder="有什么要交代的？比如切口位置、包装要求…（选填）" rows="2"></textarea>
+      </div>
+    </section>
+
+    <!-- 计价 -->
+    <aside class="summary-sticky">
+      <div class="card card-pad">
+        <div class="t-h3 mb-12">结算明细</div>
+        <div id="price-lines"></div>
+        <div class="price-total mt-12">
+          <span class="k">应付</span>
+          <span class="v"><span class="cur">¥</span><span id="sum-total">0.00</span></span>
+        </div>
+        <div id="hook-slot" class="mt-12"></div>
+        <button class="btn btn-primary btn-lg btn-block mt-16" id="btn-submit">提交订单</button>
+        <p class="t-tiny muted center mt-8">提交后进入支付页，超时未支付会自动关闭</p>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<div class="toast-wrap"></div>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/pricing.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = UI.qs;
+  if (!UI.guard()) return;
+  UI.mountNav('bag');
+  UI.qsa('.row .ico').forEach(function (i) { i.innerHTML = UI.icon('chevronL'); });
+
+  var bag = Store.bag.all();
+  if (!bag.length) {
+    UI.toast('结算袋是空的', 'warn');
+    setTimeout(function () { location.href = 'bag.html'; }, 700);
+    return;
+  }
+
+  var n = Store.bag.count();
+  var selAddrId = (Store.addresses.defaultAddr() || {}).id;
+  var selCouponId = null;
+
+  /* ---- 地址 ---- */
+  function renderAddr() {
+    var list = Store.addresses.all();
+    if (!list.length) {
+      $('#addr-area').innerHTML = '<div class="notice notice-sun" style="display:flex;gap:10px">' +
+        '<span class="notice-icon">' + UI.icon('alert') + '</span>' +
+        '<span>还没有收货地址，先去添加一个。</span></div>' +
+        '<a class="btn btn-primary btn-block mt-12" href="address.html?from=checkout">去添加地址</a>';
+      return;
+    }
+    $('#addr-area').innerHTML = '<div class="stack gap-8">' + list.map(function (a) {
+      return '<button class="addr-card' + (a.id === selAddrId ? ' is-active' : '') + '" data-addr="' + a.id + '">' +
+        '<div class="row gap-8">' +
+          '<span class="t-sm strong">' + UI.escapeHtml(a.name) + '</span>' +
+          '<span class="t-sm muted">' + UI.escapeHtml(a.phone) + '</span>' +
+          (a.isDefault ? '<span class="pill pill-brand">默认</span>' : '') +
+        '</div>' +
+        '<div class="t-sm muted mt-4">' + UI.escapeHtml(a.region + ' ' + a.detail) + '</div>' +
+      '</button>';
+    }).join('') + '</div>';
+
+    UI.qsa('[data-addr]').forEach(function (b) {
+      b.addEventListener('click', function () { selAddrId = b.dataset.addr; renderAddr(); });
+    });
+  }
+
+  /* ---- 清单 ---- */
+  function renderItems() {
+    $('#ck-items').innerHTML = bag.map(function (b) {
+      return '<div class="ck-item">' +
+        '<div class="thumb-sm"><img src="' + b.thumb + '" alt=""></div>' +
+        '<div class="grow"><div class="t-sm strong">' + UI.escapeHtml(b.name) + '</div>' +
+        '<div class="t-tiny muted">' + b.copies + ' 份</div></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  /* ---- 券 ---- */
+  function renderCoupons() {
+    var available = Store.coupons.available();
+    $('#coupon-count').textContent = available.length ? ('可用 ' + available.length + ' 张') : '暂无可用券';
+
+    var html = '<button class="coupon-card' + (selCouponId === null ? ' is-active' : '') + '" data-cp="">' +
+      '<span class="coupon-amount"><b>不用</b></span>' +
+      '<span class="col grow"><span class="t-sm strong">不使用优惠券</span></span></button>';
+
+    html += available.map(function (c) {
+      var ok = Pricing.isValid(c, n);
+      var reason = Pricing.invalidReason(c, n);
+      return '<button class="coupon-card' + (selCouponId === c.id ? ' is-active' : '') + '" ' +
+        'data-cp="' + c.id + '"' + (ok ? '' : ' disabled') + '>' +
+        '<span class="coupon-amount"><b>¥' + c.amount + '</b></span>' +
+        '<span class="col grow">' +
+          '<span class="t-sm strong">' + (c.type === 'freeship' ? '免运费券' : '通用券') + '</span>' +
+          '<span class="t-tiny muted">' + UI.escapeHtml(c.source) + ' · ' +
+            UI.escapeHtml(new Date(c.expireAt).toLocaleDateString('zh-CN')) + ' 到期</span>' +
+          (ok ? '' : '<span class="t-tiny" style="color:var(--danger);font-weight:700">' + UI.escapeHtml(reason) + '</span>') +
+        '</span>' +
+      '</button>';
+    }).join('');
+
+    $('#coupon-area').innerHTML = html;
+    UI.qsa('[data-cp]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        selCouponId = b.dataset.cp || null;
+        renderCoupons(); renderSummary();
+      });
+    });
+  }
+
+  /* ---- 计价 ---- */
+  function currentCoupon() {
+    if (!selCouponId) return null;
+    var list = Store.coupons.available();
+    for (var i = 0; i < list.length; i++) if (list[i].id === selCouponId) return list[i];
+    return null;
+  }
+
+  function renderSummary() {
+    var cp = currentCoupon();
+    if (cp && !Pricing.isValid(cp, n)) { selCouponId = null; renderCoupons(); cp = null; }
+    var q = Pricing.quote(n, cp);
+
+    var lines =
+      '<div class="price-row"><span class="k">共 ' + n + ' 张（' + bag.length + ' 个设计）</span>' +
+      '<span class="v">' + Pricing.fmtYuan(q.subtotal) + '</span></div>';
+    lines += '<div class="price-row mt-8"><span class="k">运费' + (q.shippingOriginal === 0 ? '（已满 2 张）' : '') + '</span>' +
+      '<span class="v">' + (q.shipping === 0 ? '包邮' : Pricing.fmtYuan(q.shipping)) + '</span></div>';
+
+    q.lines.forEach(function (l) {
+      lines += '<div class="price-row mt-8 is-discount"><span class="k">' + UI.escapeHtml(l.key) + '</span>' +
+        '<span class="v">' + Pricing.fmtSigned(l.value) + '</span></div>';
+    });
+
+    $('#price-lines').innerHTML = lines;
+    $('#sum-total').textContent = Pricing.fmt(q.total);
+
+    var h = Pricing.hook(n);
+    $('#hook-slot').innerHTML = h ? '<div class="hook-bar' + (h.strength === 'weak' ? ' is-weak' : '') + '">' +
+      UI.icon('sparkles') + '<span class="col">' +
+      '<span>' + UI.escapeHtml(h.text) + '</span>' +
+      (h.sub ? '<span class="t-tiny" style="font-weight:600;opacity:.8">' + UI.escapeHtml(h.sub) + '</span>' : '') +
+      '</span></div>' : '';
+  }
+
+  /* ---- 提交 ---- */
+  $('#btn-submit').addEventListener('click', function () {
+    if (!selAddrId) { UI.toast('请先选择收货地址', 'warn'); return; }
+    var cp = currentCoupon();
+    var q = Pricing.quote(n, cp);
+    var addr = Store.addresses.get(selAddrId);
+
+    var order = Store.orders.create({
+      items: bag.map(function (b) { return { name: b.name, thumb: b.thumb, copies: b.copies }; }),
+      n: n, amount: q.total, subtotal: q.subtotal, shipping: q.shippingOriginal,
+      couponType: cp ? cp.type : null, couponDiscount: q.discount,
+      address: Store.util.clone(addr), note: $('#note').value.trim()
+    });
+    if (cp) Store.coupons.consume(cp.id);
+    // 结算过的作品转入历史
+    bag.forEach(function (b) {
+      var w = Store.works.get(b.workId);
+      if (w) { w.kind = 'history'; Store.works.upsert(w); }
+    });
+    Store.bag.clear();
+    location.href = 'payment.html?id=' + order.id;
+  });
+
+  renderAddr(); renderItems(); renderCoupons(); renderSummary();
+})();
+</script>
+</body>
+</html>

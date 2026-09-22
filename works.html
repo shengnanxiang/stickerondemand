@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的作品 · SOD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .w-card { overflow: hidden; }
+  .w-card .thumb { border-radius: 0; border: 0; border-bottom: 1px solid var(--line); }
+  .w-body { padding: 13px 15px; }
+  .w-actions { display: flex; gap: 8px; padding: 0 15px 14px; }
+</style>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="container page">
+  <div class="row between mb-16">
+    <div>
+      <h1 class="t-h1">我的作品</h1>
+      <p class="muted t-sm mt-4">草稿会自动保存，历史作品可以直接再来一单</p>
+    </div>
+    <a class="btn btn-primary btn-sm" href="editor.html">新建作品</a>
+  </div>
+
+  <div class="tabs mb-16" role="tablist">
+    <button class="tab is-active" data-k="draft">草稿</button>
+    <button class="tab" data-k="history">历史作品</button>
+  </div>
+
+  <div id="works-area"></div>
+</main>
+
+<!-- 再来一单：设份数 -->
+<div class="backdrop" id="modal" hidden>
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head"><span class="t-h3">再次下单</span>
+      <button class="ed-tool-btn" id="m-close"><span class="ico" id="i-mc"></span></button></div>
+    <div class="modal-body">
+      <div class="row gap-16">
+        <div class="thumb-sm" style="width:88px"><img id="m-thumb" src="" alt=""></div>
+        <div class="col gap-4 grow">
+          <span class="t-h3" id="m-name"></span>
+          <span class="t-tiny muted">原样复用这个设计</span>
+        </div>
+      </div>
+      <div class="row between mt-16">
+        <span class="label">印几份</span>
+        <div class="stepper">
+          <button id="m-minus">−</button><span class="val" id="m-copies">1</span><button id="m-plus">＋</button>
+        </div>
+      </div>
+      <div class="notice mt-16" style="display:flex;gap:10px">
+        <span class="notice-icon" id="i-n"></span>
+        <span id="m-hint"></span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" id="m-cancel">取消</button>
+      <button class="btn btn-primary btn-sm" id="m-ok">加入结算袋</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap"></div>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/pricing.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = UI.qs;
+  if (!UI.guard()) return;
+  UI.mountNav('works');
+  $('#i-mc').innerHTML = UI.icon('close');
+  $('#i-n').innerHTML = UI.icon('info');
+
+  var kind = 'draft';
+  var reorder = null, reorderCopies = 1;
+
+  UI.qsa('.tab').forEach(function (t) {
+    t.addEventListener('click', function () {
+      UI.qsa('.tab').forEach(function (x) { x.classList.remove('is-active'); });
+      t.classList.add('is-active');
+      kind = t.dataset.k;
+      render();
+    });
+  });
+
+  function render() {
+    var list = kind === 'draft' ? Store.works.drafts() : Store.works.history();
+    list = list.slice().sort(function (a, b) { return b.updatedAt - a.updatedAt; });
+
+    if (!list.length) {
+      $('#works-area').innerHTML = '<div class="card">' + (kind === 'draft'
+        ? UI.empty('works', '还没有草稿', '做一半可以先存草稿，下次打开接着改。',
+            '<a class="btn btn-primary" href="editor.html">新建一个作品</a>')
+        : UI.empty('order', '还没有历史作品', '下单过的作品会出现在这里，可以直接再来一单。')) + '</div>';
+      return;
+    }
+
+    $('#works-area').innerHTML = '<div class="grid grid-3">' + list.map(function (w) {
+      var actions = kind === 'draft'
+        ? '<a class="btn btn-outline btn-sm" style="flex:1" href="editor.html?work=' + w.id + '">继续编辑</a>' +
+          '<button class="btn btn-danger btn-sm" data-del="' + w.id + '">删除</button>'
+        : '<button class="btn btn-primary btn-sm" style="flex:1" data-again="' + w.id + '">再来一单</button>' +
+          '<a class="btn btn-outline btn-sm" href="editor.html?work=' + w.id + '">改一改</a>';
+      return '<div class="card card-hover w-card">' +
+        '<div class="thumb"><img src="' + (w.thumb || '') + '" alt=""></div>' +
+        '<div class="w-body">' +
+          '<div class="t-h3">' + UI.escapeHtml(w.name) + '</div>' +
+          '<div class="row between mt-4">' +
+            '<span class="t-tiny muted">' + Store.util.ago(w.updatedAt) + '</span>' +
+            '<span class="pill ' + (kind === 'draft' ? 'pill-sun' : 'pill-gray') + '">' +
+              (kind === 'draft' ? '草稿' : '已下单过') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="w-actions">' + actions + '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+
+    UI.qsa('[data-del]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        Store.works.remove(b.dataset.del);
+        UI.toast('已删除草稿');
+        render();
+      });
+    });
+    UI.qsa('[data-again]').forEach(function (b) {
+      b.addEventListener('click', function () { openReorder(b.dataset.again); });
+    });
+  }
+
+  /* ---- 再来一单 ---- */
+  function openReorder(id) {
+    var w = Store.works.get(id);
+    if (!w) return;
+    reorder = w;
+    reorderCopies = 1;
+    $('#m-thumb').src = w.thumb || '';
+    $('#m-name').textContent = w.name;
+    updateModalHint();
+    $('#modal').hidden = false;
+  }
+  function updateModalHint() {
+    $('#m-copies').textContent = reorderCopies;
+    var cur = Store.bag.count();
+    var next = cur + reorderCopies;
+    var q0 = Pricing.quote(cur, null).total;
+    var q1 = Pricing.quote(next, null).total;
+    var txt = '结算袋现在共 ' + cur + ' 张。加 ' + reorderCopies + ' 份后变成 ' + next + ' 张，' +
+      '应付从 ' + Pricing.fmtYuan(q0) + ' 变成 ' + Pricing.fmtYuan(q1) + '。';
+    var h = Pricing.hook(next);
+    if (cur > 0 && h) txt += '<br><b>' + UI.escapeHtml(h.text) + '</b>';
+    $('#m-hint').innerHTML = txt;
+  }
+
+  $('#m-minus').addEventListener('click', function () {
+    if (reorderCopies > 1) { reorderCopies--; updateModalHint(); }
+  });
+  $('#m-plus').addEventListener('click', function () { reorderCopies++; updateModalHint(); });
+  $('#m-close').addEventListener('click', function () { $('#modal').hidden = true; });
+  $('#m-cancel').addEventListener('click', function () { $('#modal').hidden = true; });
+  $('#modal').addEventListener('click', function (e) { if (e.target === $('#modal')) $('#modal').hidden = true; });
+  $('#m-ok').addEventListener('click', function () {
+    if (!reorder) return;
+    Store.bag.add(reorder.id, reorderCopies);
+    $('#modal').hidden = true;
+    UI.refreshBagBadge();
+    UI.toast('已加入结算袋', 'ok');
+    setTimeout(function () { location.href = 'bag.html'; }, 600);
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

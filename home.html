@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>创作 · SOD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  /* Hero */
+  .hero {
+    position: relative; overflow: hidden;
+    background: linear-gradient(135deg, #FFF6EC 0%, #FFEFE2 52%, #FFE8DC 100%);
+    border: 1px solid #F6DCC6; border-radius: var(--r-xl);
+    padding: 40px 44px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 32px; align-items: center;
+  }
+  .hero::after {
+    content: ''; position: absolute; width: 380px; height: 380px; right: -120px; top: -160px;
+    border-radius: 50%; background: rgba(255, 122, 69, .07);
+  }
+  .hero-inner { position: relative; z-index: 1; }
+  .hero-eyebrow { display: inline-flex; align-items: center; gap: 7px; padding: 5px 13px; border-radius: var(--r-full); background: #fff; color: var(--brand-deep); font-size: 12.5px; font-weight: 700; box-shadow: var(--sh-1); }
+  .hero h1 { font-size: 38px; line-height: 1.24; font-weight: 800; letter-spacing: -.7px; margin: 18px 0 12px; }
+  .hero p { color: var(--ink-2); font-size: 15px; line-height: 1.7; max-width: 460px; }
+  .hero-cta { display: flex; align-items: center; gap: 14px; margin-top: 26px; flex-wrap: wrap; }
+  .hero-price { display: flex; gap: 22px; margin-top: 26px; padding-top: 20px; border-top: 1px dashed #E8CDB4; flex-wrap: wrap; }
+  .hero-price-item { display: flex; flex-direction: column; gap: 1px; }
+  .hero-price-item .k { font-size: 12px; color: var(--ink-3); font-weight: 600; }
+  .hero-price-item .v { font-size: 17px; font-weight: 800; color: var(--brand-deep); }
+  .hero-art { position: relative; z-index: 1; }
+  .hero-art img { width: 100%; border-radius: var(--r-lg); box-shadow: var(--sh-3); transform: rotate(1.6deg); }
+
+  /* Section */
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .work-card { overflow: hidden; text-align: left; width: 100%; }
+  .work-card .thumb { border-radius: 0; border: 0; border-bottom: 1px solid var(--line); }
+  .work-body { padding: 13px 15px; }
+  .order-row {
+    display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: var(--r-md);
+    background: var(--cream-50); border: 1px solid var(--line); width: 100%; text-align: left;
+    transition: border-color .16s var(--ease), background .16s var(--ease);
+  }
+  .order-row:hover { border-color: var(--line-strong); background: #fff; }
+  @media (max-width: 1000px) { .hero { grid-template-columns: 1fr; } .hero-art { display: none; } }
+</style>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="container page">
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-inner">
+      <span class="hero-eyebrow"><span id="h-eyebrow"></span>AI 抠图 · 自己排 · 送货上门</span>
+      <h1>把你喜欢的东西，<br>变成能贴出去的实体</h1>
+      <p>上传照片，AI 自动抠图，剩下的排版交给你。不用买 1500 元的机器，也不用凑起订量——一张就印，照张数累进计价。</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-xl" href="editor.html">
+          <span class="ico"></span><span id="h-cta">开始 DIY</span>
+        </a>
+        <span class="t-sm muted">做完一张再接着做下一张，一起结算更便宜</span>
+      </div>
+      <div class="hero-price">
+        <div class="hero-price-item"><span class="k">第 1–2 张</span><span class="v">9.9 元 / 张</span></div>
+        <div class="hero-price-item"><span class="k">第 3–4 张</span><span class="v">7.9 元 / 张</span></div>
+        <div class="hero-price-item"><span class="k">第 5 张起</span><span class="v brand-text">5.9 元 / 张</span></div>
+        <div class="hero-price-item"><span class="k">运费</span><span class="v">满 2 张包邮</span></div>
+      </div>
+    </div>
+    <div class="hero-art" id="hero-art"></div>
+  </section>
+
+  <!-- 继续创作 -->
+  <section class="mt-32">
+    <div class="sec-head">
+      <h2 class="t-h2">继续创作</h2>
+      <a class="btn btn-ghost btn-sm" href="works.html">全部作品<span class="ico"></span></a>
+    </div>
+    <div id="draft-area"></div>
+  </section>
+
+  <!-- 进行中的订单 -->
+  <section class="mt-32">
+    <div class="sec-head">
+      <h2 class="t-h2">进行中</h2>
+      <a class="btn btn-ghost btn-sm" href="orders.html">全部订单<span class="ico"></span></a>
+    </div>
+    <div id="order-area"></div>
+  </section>
+
+  <!-- 计价说明 -->
+  <section class="mt-32">
+    <details class="card card-pad">
+      <summary style="cursor:pointer;font-weight:800;display:flex;align-items:center;gap:8px">
+        <span class="ico"></span>价格是怎么算的？
+      </summary>
+      <div class="mt-16 muted-2 t-sm" style="line-height:1.75">
+        <p>按<b>一次结算的总张数</b>累进计价——每张只按它自己所在的档位算钱，不会把前面几张重新算一遍。</p>
+        <table class="rule-table mt-8">
+          <thead><tr><th>第几张</th><th>单价</th><th>举例</th></tr></thead>
+          <tbody>
+            <tr><td>第 1–2 张</td><td class="strong">9.9 元</td><td>买 2 张 → 19.8 元</td></tr>
+            <tr><td>第 3–4 张</td><td class="strong">7.9 元</td><td>买 4 张 → 35.6 元</td></tr>
+            <tr><td>第 5 张起</td><td class="strong brand-text">5.9 元</td><td>买 5 张 → 41.5 元</td></tr>
+          </tbody>
+        </table>
+        <p class="mt-12">运费：只做 1 张收 5 元，满 2 张包邮。<br>
+        「第 5 张只要 5 块 9」说的是<b>第 5 张那一张</b>的价格，不是 5 张平均价——5 张实付 41.5 元，均价 8.3 元。</p>
+      </div>
+    </details>
+  </section>
+</main>
+
+<div class="toast-wrap"></div>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/pricing.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = UI.qs;
+  UI.mountNav('home');
+  $('#h-eyebrow').innerHTML = UI.icon('sparkles');
+  UI.qsa('.hero-cta .ico').forEach(function (i) { i.innerHTML = UI.icon('sparkles'); });
+  UI.qsa('.sec-head .btn-ghost .ico').forEach(function (i) { i.innerHTML = UI.icon('chevronR'); });
+  UI.qsa('details summary .ico').forEach(function (i) { i.innerHTML = UI.icon('info'); });
+
+  // Hero 装饰图：用示例作品缩略图拼贴
+  (function () {
+    var w = Store.works.history()[0];
+    $('#hero-art').innerHTML = w
+      ? '<img src="' + w.thumb + '" alt="作品示例">'
+      : '';
+  })();
+
+  /* ---- 草稿区 ---- */
+  var drafts = Store.works.drafts();
+  var draftArea = $('#draft-area');
+  if (!drafts.length) {
+    draftArea.innerHTML = '<div class="card">' + UI.empty('works', '还没有草稿',
+      '点上面的「开始 DIY」，上传一张照片就能开始。没做完也没关系，随时可以存草稿。',
+      '<a class="btn btn-primary" href="editor.html">开始 DIY</a>') + '</div>';
+  } else {
+    draftArea.innerHTML = '<div class="grid grid-3">' + drafts.slice(0, 3).map(function (w) {
+      return '<a class="card card-hover work-card" href="editor.html?work=' + w.id + '">' +
+        '<div class="thumb"><img src="' + (w.thumb || '') + '" alt=""></div>' +
+        '<div class="work-body">' +
+          '<div class="t-h3">' + UI.escapeHtml(w.name) + '</div>' +
+          '<div class="row between mt-4"><span class="t-tiny muted">' + Store.util.ago(w.updatedAt) + '</span>' +
+          '<span class="pill pill-gray">草稿</span></div>' +
+        '</div></a>';
+    }).join('') + '</div>';
+  }
+
+  /* ---- 进行中的订单 ---- */
+  var active = Store.orders.all().filter(function (o) {
+    return o.status === 'pending' || o.status === 'making' || o.status === 'shipped';
+  });
+  var orderArea = $('#order-area');
+  if (!active.length) {
+    orderArea.innerHTML = '<div class="card">' + UI.empty('order', '还没有进行中的订单',
+      '做完作品加入结算袋，就能下单了。') + '</div>';
+  } else {
+    var actionText = { pending: '去支付', making: '查看详情', shipped: '查看物流' };
+    orderArea.innerHTML = '<div class="stack gap-8">' + active.map(function (o) {
+      var thumb = (o.items[0] && o.items[0].thumb) || '';
+      return '<a class="order-row" href="order-detail.html?id=' + o.id + '">' +
+        '<div class="thumb-sm"><img src="' + thumb + '" alt=""></div>' +
+        '<div class="grow">' +
+          '<div class="row gap-8">' + UI.statusPill(o.status) +
+            '<span class="t-sm strong">' + UI.escapeHtml((o.items[0] && o.items[0].name) || '贴纸') +
+            (o.items.length > 1 ? ' 等 ' + o.items.length + ' 件' : '') + '</span></div>' +
+          '<div class="t-tiny muted mt-4">单号 ' + o.id + ' · 共 ' + o.n + ' 张 · ' + Store.util.ago(o.createdAt) + '</div>' +
+        '</div>' +
+        '<div class="row gap-6 nowrap"><span class="t-sm strong">' + UI.yuan(o.amount) + '</span>' +
+        '<span class="t-sm brand-text strong">' + actionText[o.status] + '</span>' +
+        '<span class="ico"></span></div>' +
+      '</a>';
+    }).join('') + '</div>';
+    UI.qsa('#order-area .ico').forEach(function (i) { i.innerHTML = UI.icon('chevronR'); });
+  }
+})();
+</script>
+</body>
+</html>
