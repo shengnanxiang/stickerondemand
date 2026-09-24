@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#e7e0ff"/>
+  <rect x="140" y="60" width="120" height="160" rx="10" fill="#fff" stroke="#7950f2" stroke-width="3"/>
+  <rect x="140" y="60" width="120" height="160" rx="10" fill="none" stroke="#7950f2" stroke-width="3" stroke-dasharray="4 4" opacity=".4"/>
+  <rect x="160" y="80" width="34" height="46" rx="4" fill="#a78bfa"/>
+  <rect x="200" y="80" width="34" height="46" rx="4" fill="#845ef7"/>
+  <rect x="160" y="132" width="34" height="46" rx="4" fill="#7048e8"/>
+  <rect x="200" y="132" width="34" height="46" rx="4" fill="#9775fa"/>
+  <circle cx="177" cy="200" r="12" fill="#fcc419" stroke="#7950f2" stroke-width="2"/>
+  <text x="200" y="255" text-anchor="middle" font-family="system-ui,sans-serif" font-size="20" font-weight="700" fill="#7950f2">痛包 · 谷子</text>
+</svg>

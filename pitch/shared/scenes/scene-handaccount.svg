@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#ffe1ea"/>
+  <rect x="120" y="70" width="100" height="130" rx="8" fill="#fff" stroke="#ff6b8b" stroke-width="3"/>
+  <rect x="120" y="70" width="100" height="22" rx="8" fill="#ff6b8b"/>
+  <circle cx="155" cy="135" r="13" fill="#ffd6e0" stroke="#ff6b8b" stroke-width="2"/>
+  <rect x="175" y="120" width="35" height="7" rx="3" fill="#ff9caf"/>
+  <rect x="175" y="133" width="28" height="7" rx="3" fill="#ffd6e0"/>
+  <rect x="145" y="160" width="50" height="6" rx="3" fill="#ffd6e0"/>
+  <text x="200" y="255" text-anchor="middle" font-family="system-ui,sans-serif" font-size="20" font-weight="700" fill="#ff6b8b">手帐装饰</text>
+</svg>

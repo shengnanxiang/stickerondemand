@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#ffe5d0"/>
+  <circle cx="200" cy="140" r="70" fill="#fff" stroke="#ff922b" stroke-width="3"/>
+  <circle cx="170" cy="120" r="14" fill="#ffb366"/>
+  <circle cx="230" cy="120" r="14" fill="#ffb366"/>
+  <circle cx="150" cy="155" r="16" fill="#ffb366"/>
+  <circle cx="250" cy="155" r="16" fill="#ffb366"/>
+  <path d="M185 150 Q200 175 215 150 Q200 165 185 150Z" fill="#ff922b"/>
+  <path d="M175 95 Q190 80 200 90" fill="none" stroke="#ff922b" stroke-width="3" stroke-linecap="round"/>
+  <path d="M225 95 Q210 80 200 90" fill="none" stroke="#ff922b" stroke-width="3" stroke-linecap="round"/>
+  <text x="200" y="255" text-anchor="middle" font-family="system-ui,sans-serif" font-size="20" font-weight="700" fill="#ff922b">宠物贴纸</text>
+</svg>
