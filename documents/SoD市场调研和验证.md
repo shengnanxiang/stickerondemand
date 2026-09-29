@@ -274,5 +274,6 @@ For 中国 15-25 岁二次元/手帐圈层用户与年轻父母（含毛孩子�
 - 界面新闻（2026-04）：喜茶 DIY 喜帖案例
 - 豆丁网（2026-06）：手帐行业 48.7 亿（2024）
 - incfact.com：Sticker Mule 收入估计（数亿美元级）；对其的全面深拆另见 `documents/StickerMule深度分析.md`（2026-09-29，含官网八页抓取数据与三收入线对照）
+- POD 生态全景对标（Redbubble/StickerApp/StickerYou/柔造）另见 `documents/POD平台对标分析.md`（2026-09-29，含 Articore 财务拆解、国内一件起订赛道情报与战略校准结论）
 - 贝哲斯咨询：中国在线照片冲印 216.62 亿（2024）
 - 内部事实：S1 量产在售、SOD.md/PLATFORM.md 战略文档
