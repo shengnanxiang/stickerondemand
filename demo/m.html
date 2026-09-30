@@ -166,6 +166,12 @@ function setCopies(delta) {
   document.getElementById('pnote').textContent = stage.copies + ' 张';
 }
 
+function goPay() {
+  stage.step = 'pay';
+  renderApp();
+  window.scrollTo(0, 0);
+}
+
 /* ---------- S3c 模拟支付 ---------- */
 function renderPay() {
   const d = stage.design;
