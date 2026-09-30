@@ -36,7 +36,20 @@ create table if not exists demo_orders (
 create index if not exists idx_orders_created on demo_orders (created_at desc);
 
 -- ---------- Realtime ----------
-alter publication supabase_realtime add table demo_sessions, demo_counters, demo_customers, demo_orders, demo_devices;
+-- 幂等加入 Realtime 订阅（已加入的表跳过，重复执行不报 42710）
+do $$
+declare t text;
+begin
+  foreach t in array array['demo_sessions','demo_counters','demo_customers','demo_orders','demo_devices']
+  loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table %I', t);
+    end if;
+  end loop;
+end $$;
 
 -- ---------- RLS ----------
 alter table demo_sessions  enable row level security;
@@ -45,6 +58,11 @@ alter table demo_customers enable row level security;
 alter table demo_devices   enable row level security;
 alter table demo_orders    enable row level security;
 
+drop policy if exists "read" on demo_sessions;
+drop policy if exists "read" on demo_counters;
+drop policy if exists "read" on demo_customers;
+drop policy if exists "read" on demo_devices;
+drop policy if exists "read" on demo_orders;
 create policy "read" on demo_sessions  for select using (true);
 create policy "read" on demo_counters  for select using (true);
 create policy "read" on demo_customers for select using (true);
