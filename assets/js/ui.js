@@ -124,7 +124,7 @@
     var lo = qs('#btn-logout');
     lo && lo.addEventListener('click', function () {
       Store.auth.logout();
-      location.href = 'index.html';
+      location.href = 'userstudio.html';
     });
   }
 
@@ -140,7 +140,7 @@
   function guard() {
     if (!Store.auth.isLogin()) {
       var back = location.pathname.split('/').pop() + location.search;
-      location.replace('index.html?redirect=' + encodeURIComponent(back));
+      location.replace('userstudio.html?redirect=' + encodeURIComponent(back));
       return false;
     }
     return true;
