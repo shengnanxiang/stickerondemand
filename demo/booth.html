@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>摊位屏 · SOD Phase 0</title>
+<link rel="stylesheet" href="demo.css">
+<style>
+  body { background: var(--cream-100); }
+  .booth-grid { display: grid; grid-template-columns: 400px 1fr; gap: 20px; padding: 20px; }
+  .booth-qr-card { position: sticky; top: 80px; }
+  .call-item { font-size: 16px; }
+  .now-serving { font-size: 15px; }
+  .queue-panel { min-height: 420px; }
+  .q-empty { padding: 48px 20px; text-align: center; color: var(--ink-4); font-size: 14px; }
+  .wait-hint { font-size: 12.5px; color: var(--ink-3); background: var(--cream-200); border-radius: var(--r-md); padding: 10px 14px; margin-top: 14px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <div class="logo">贴</div>
+    <div>
+      <div class="t-title">SOD 摊位屏 <span id="act-name" style="color:var(--ink-3);font-weight:600"></span></div>
+      <div class="t-sub">面向观众 · 二维码 + 排队进度 + 取件叫号（通知三层兜底的第 3 层）</div>
+    </div>
+    <div class="t-right">
+      <span class="pill pill-live">实时</span>
+      <a class="btn btn-sm" href="console.html">运营控制台 →</a>
+      <a class="btn btn-sm btn-ghost" href="index.html">退出</a>
+    </div>
+  </header>
+
+  <div class="booth-grid">
+    <!-- 左：二维码 -->
+    <div>
+      <div class="card card-pad booth-qr-card">
+        <div style="font-weight:800;font-size:16px;">📱 扫码开做 · 当场取</div>
+        <div class="qr-frame" id="qr-box"></div>
+        <div class="qr-tip">微信扫码授权登录<br><b>上传照片 → 简单编辑 → 下单支付</b><br>约 2-3 分钟，做好后这里叫号</div>
+        <div class="wait-hint">
+          <b>排队规则</b>：接单后按顺序制作，人可以离开摊位去逛展；<br>
+          做好会通过<b>服务号推送 + 短信</b>通知你（演示中模拟），
+          也可随时回来扫屏幕上的二维码查进度。
+        </div>
+      </div>
+    </div>
+
+    <!-- 右：叫号 + 排队 + 统计 -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <!-- 统计 -->
+      <div class="stat-grid">
+        <div class="stat-card"><div class="s-num" id="st-customer">0</div><div class="s-label">今日获客（扫码授权）</div></div>
+        <div class="stat-card"><div class="s-num" id="st-orders">0</div><div class="s-label">订单数</div></div>
+        <div class="stat-card"><div class="s-num" id="st-making">0</div><div class="s-label">制作中</div></div>
+        <div class="stat-card"><div class="s-num" id="st-ready">0</div><div class="s-label">待取货</div></div>
+      </div>
+
+      <!-- 叫号 -->
+      <div class="card card-pad">
+        <div style="font-weight:800;font-size:15px;margin-bottom:12px;">🔔 叫号 · 请凭取件码取货</div>
+        <div class="call-list" id="call-list"><div class="q-empty">暂无待取货订单——完成后这里叫号并高亮</div></div>
+      </div>
+
+      <!-- 排队 -->
+      <div class="card card-pad queue-panel">
+        <div style="font-weight:800;font-size:15px;margin-bottom:12px;">🧾 瑞幸式排队进度（全透明）</div>
+        <table class="dtable" id="queue-table">
+          <thead><tr><th>排队号</th><th>设计</th><th>份数</th><th>状态</th><th>更新时间</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="q-empty" id="queue-empty" hidden>还没有人下单<br>用手机扫左侧二维码试试 →</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/qrcode.min.js"></script>
+<script src="vendor/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="demo.js"></script>
+<script>
+/* 云端模式：本页驱动设备仿真泵（打印推进） */
+SOD.startPump();
+
+/* ---------- 二维码：指向手机页（含渠道参数） ---------- */
+let boothUrl = '';
+function renderQR(state) {
+  if (boothUrl) return;
+  const ch = state.session ? state.session.ch : 'booth-demo';
+  boothUrl = location.origin + '/m.html?ch=' + encodeURIComponent(ch);
+  const qr = qrcode(0, 'M');
+  qr.addData(boothUrl);
+  qr.make();
+  const img = document.createElement('img');
+  img.src = qr.createDataURL(8, 8);
+  img.alt = '扫码开做';
+  document.getElementById('qr-box').appendChild(img);
+}
+
+/* ---------- 渲染 ---------- */
+function render(state) {
+  renderQR(state);
+  const s = state.stats;
+  document.getElementById('act-name').textContent = state.session ? '· ' + state.session.name : '· 未开始（回首页开场）';
+  document.getElementById('st-customer').textContent = s.customers;
+  document.getElementById('st-orders').textContent = s.orders;
+  document.getElementById('st-making').textContent = s.printing;
+  document.getElementById('st-ready').textContent = s.ready;
+
+  /* 叫号列表：可取货 & 5 分钟内 */
+  const now = Date.now();
+  const readyOrders = state.orders.filter(o => o.status === 'ready');
+  const callList = document.getElementById('call-list');
+  if (readyOrders.length === 0) {
+    callList.innerHTML = '<div class="q-empty">暂无待取货订单——完成后这里叫号并高亮</div>';
+  } else {
+    callList.innerHTML = readyOrders.slice(0, 6).map(o => `
+      <div class="call-item call-item-line">
+        <span class="ci-queue">${esc(o.queueNo)}</span>
+        <span class="ci-text">做好了！请到摊位凭取件码 <b>${esc(o.code)}</b> 取货</span>
+        <span class="pill pill-sun dr-tag">等待取货</span>
+      </div>`).join('');
+  }
+
+  /* 排队表 */
+  const tbody = document.querySelector('#queue-table tbody');
+  const list = state.orders;
+  document.getElementById('queue-empty').hidden = list.length > 0;
+  document.querySelector('#queue-table').style.display = list.length ? '' : 'none';
+  tbody.innerHTML = list.map(o => {
+    const st = ORDER_STATUS[o.status];
+    return `<tr>
+      <td style="font-weight:800;font-family:monospace">${esc(o.queueNo)}</td>
+      <td>${o.thumb ? `<img src="${o.thumb}" style="width:52px;height:38px;border-radius:6px;object-fit:cover;border:1px solid var(--line)">` : ''}</td>
+      <td>×${o.copies}</td>
+      <td><span class="pill ${st.cls}">${st.text}</span></td>
+      <td style="color:var(--ink-3);font-size:12px">${fmtClock(o.readyAt || o.acceptedAt || o.createdAt)}</td>
+    </tr>`;
+  }).join('');
+}
+
+subscribeEvents(render);
+</script>
+</body>
+</html>

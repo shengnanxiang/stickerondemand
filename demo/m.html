@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>贴纸现场做 · SOD</title>
+<link rel="stylesheet" href="demo.css">
+<style>
+  body { background: var(--cream-200); }
+  .wx-btn {
+    width: 100%; height: 48px; border-radius: var(--r-full); font-size: 15px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .wx-btn.wechat { background: #07C160; color: #fff; box-shadow: 0 6px 18px rgba(7,193,96,.30); }
+  .wx-btn.line { background: #fff; border: 1.5px solid var(--line-strong); color: var(--ink-2); }
+  .phone-row { display: flex; gap: 8px; margin: 14px 0; }
+  .phone-row input {
+    flex: 1; height: 46px; border: 1.5px solid var(--line-strong); border-radius: var(--r-md);
+    padding: 0 14px; font-size: 15px; font-family: inherit; outline: none; background: #fff;
+  }
+  .phone-row input:focus { border-color: var(--brand); }
+  .phone-row .send-code {
+    flex: none; height: 46px; padding: 0 14px; border-radius: var(--r-md); font-size: 12.5px; font-weight: 700;
+    background: var(--brand-soft); color: var(--brand-dark); border: none;
+  }
+  .phone-row .send-code:disabled { background: var(--cream-200); color: var(--ink-4); }
+  .wx-avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; font-size: 24px; font-weight: 800; margin: 0 auto 12px; }
+  .push-note {
+    margin-top: 14px; background: var(--sky-soft); border: 1px solid #CFE3F4; border-radius: var(--r-md);
+    padding: 12px 14px; font-size: 12px; color: #3A6E99; line-height: 1.7;
+  }
+  .m-preview { width: 100%; border-radius: var(--r-md); border: 1px solid var(--line); background: #fff; }
+  .price-row { display: flex; align-items: baseline; gap: 8px; margin: 4px 0 16px; }
+  .price-row .p-val { font-size: 26px; font-weight: 800; color: var(--brand-dark); }
+  .price-row .p-note { font-size: 12px; color: var(--ink-3); }
+  .queue-pos {
+    display: flex; align-items: center; gap: 12px; background: var(--sun-soft); border: 1.5px solid #F0D9A8;
+    border-radius: var(--r-md); padding: 12px 16px; margin-bottom: 16px;
+  }
+  .queue-pos .qp-num { font-size: 26px; font-weight: 800; color: #B8842A; font-family: monospace; }
+  .push-toast {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 300; background: rgba(48,42,36,.92); color: #fff;
+    padding: 12px 18px calc(12px); font-size: 13px; line-height: 1.6; display: flex; gap: 10px; align-items: flex-start;
+    animation: slideDown .3s var(--ease); padding-top: calc(12px + env(safe-area-inset-top));
+  }
+  @keyframes slideDown { from { transform: translateY(-100%); } }
+  .push-toast .pt-icon { flex: none; width: 30px; height: 30px; border-radius: 8px; background: var(--brand); display: grid; place-items: center; font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="m-wrap">
+  <div class="m-head">
+    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E" alt="logo">
+    <div>
+      <div class="h-title">SOD 贴纸工坊</div>
+      <div class="h-sub" id="head-ch">活动现场 · 当场做当场取</div>
+    </div>
+    <span class="pill pill-booth" style="margin-left:auto;">0a 现场单</span>
+  </div>
+
+  <div class="m-body" id="app"></div>
+</div>
+
+<script src="vendor/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="demo.js"></script>
+<script>
+/* ============================================================
+   手机页状态机：auth → pick → copies → pay → done(跟踪)
+   对应 journey §2 六步主旅程的 S2-S5
+   ============================================================ */
+const stage = { step: 'auth', design: null, copies: 1, order: null, user: null, phoneSent: false, phone: '' };
+const ch = qs('ch') || 'booth-demo';
+document.getElementById('head-ch').textContent = '渠道：' + ch;
+const PRICE = 9.9; // 演示单价（现场特价）
+
+const app = document.getElementById('app');
+
+/* ---------- 渲染入口 ---------- */
+function renderApp() {
+  if (stage.step === 'auth') return renderAuth();
+  if (stage.step === 'pick') return renderPick();
+  if (stage.step === 'copies') return renderCopies();
+  if (stage.step === 'pay') return renderPay();
+  if (stage.step === 'done') return renderDone();
+}
+
+/* ---------- S2 模拟授权登录（获客） ---------- */
+function renderAuth() {
+  app.innerHTML = `
+    <div class="step-card">
+      <div class="step-label">STEP 1 / 4 · 授权登录</div>
+      <h2 class="step-title">微信一键授权</h2>
+      <p class="step-desc">演示模拟微信网页授权（真实环境为静默授权+手机号快捷组件）。授权即获客，渠道「${esc(ch)}」已随会话记录。</p>
+      <div class="wx-avatar">微</div>
+      <button class="wx-btn wechat" onclick="doAuth()">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="#fff"><path d="M9.3 4C5.3 4 2 6.7 2 10.1c0 1.9 1 3.5 2.6 4.6l-.7 2.2 2.5-1.3c.9.2 1.9.4 2.9.4h.5a5.6 5.6 0 0 1-.2-1.5c0-3.3 3.2-6 7.2-6h.4C16.7 5.8 13.3 4 9.3 4Zm-2.5 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm5 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/><path d="M22 14.5c0-2.8-2.9-5-6.4-5s-6.4 2.2-6.4 5 2.9 5 6.4 5c.8 0 1.6-.1 2.3-.4l2.1 1.1-.6-1.9c1.6-.9 2.6-2.3 2.6-3.8Zm-8.5-1.2a.9.9 0 1 1 0 1.8.9.9 0 0 1 0-1.8Zm4.2 0a.9.9 0 1 1 0 1.8.9.9 0 0 1 0-1.8Z"/></svg>
+        授权并登录
+      </button>
+      <div class="push-note">📡 真实链路：网页授权 → openid → 首次下单补绑手机号（强制）。<br>演示中授权后直接进入下一步。</div>
+    </div>`;
+}
+
+async function doAuth() {
+  /* 随机微信昵称 */
+  const names = ['板栗仔', '小熊软糖', '芝士桃桃', '波波奶茶', '月亮饲养员', '果子狸', '云朵收藏家', '白桃乌龙'];
+  stage.user = names[Math.floor(Math.random() * names.length)];
+  await API.post('/api/customer');  // 获客 +1
+  toast('授权成功 · 欢迎 ' + stage.user);
+  stage.step = 'pick';
+  renderApp();
+}
+
+/* ---------- S3a 选设计（模拟「上传+编辑完成」） ---------- */
+function renderPick() {
+  app.innerHTML = `
+    <div class="step-card">
+      <div class="step-label">STEP 2 / 4 · 选择设计</div>
+      <h2 class="step-title">选一张开做</h2>
+      <p class="step-desc">模拟「上传手机照片 → 编辑器简单编辑」完成后的状态。现场用户上传自己的照片，这里演示用 5 张预设设计。</p>
+      <div class="design-grid">
+        ${DESIGN_LIB.map(d => `
+          <button class="design-item" onclick="pickDesign('${d.id}')">
+            <img class="d-thumb" src="${designThumbURI(d)}" alt="${esc(d.name)}">
+            <span class="d-name">${esc(d.name)}</span>
+          </button>`).join('')}
+      </div>
+    </div>`;
+}
+
+function pickDesign(id) {
+  stage.design = designById(id);
+  stage.step = 'copies';
+  renderApp();
+  window.scrollTo(0, 0);
+}
+
+/* ---------- S3b 份数（模拟结算袋） ---------- */
+function renderCopies() {
+  const d = stage.design;
+  app.innerHTML = `
+    <div class="step-card">
+      <div class="step-label">STEP 3 / 4 · 确认份数</div>
+      <h2 class="step-title">做几张？</h2>
+      <p class="step-desc">同一设计可选多份（N 份 = N 张 7 寸相纸），现场特价 ¥9.9/张。</p>
+      <img class="m-preview" src="${designThumbURI(d)}" alt="">
+      <div style="font-weight:800;margin:14px 0 2px;font-size:15px;">${esc(d.name)}</div>
+      <div style="height:18px;"></div>
+      <div class="copies-row">
+        <button class="c-minus" onclick="setCopies(-1)">−</button>
+        <div class="c-num" id="cnum">1</div>
+        <button class="c-plus" onclick="setCopies(1)">＋</button>
+        <span class="c-unit">张 · ¥9.9/张</span>
+      </div>
+    </div>
+    <div class="pay-bar"><div class="pb-inner">
+      <div class="pb-amount">¥<span id="pval">${(PRICE).toFixed(2)}</span> <small id="pnote">1 张</small></div>
+      <button class="btn btn-primary btn-pay" onclick="goPay()">下一步</button>
+    </div></div>`;
+}
+
+function setCopies(delta) {
+  stage.copies = Math.max(1, Math.min(9, stage.copies + delta));
+  document.getElementById('cnum').textContent = stage.copies;
+  document.getElementById('pval').textContent = (PRICE * stage.copies).toFixed(2);
+  document.getElementById('pnote').textContent = stage.copies + ' 张';
+}
+
+/* ---------- S3c 模拟支付 ---------- */
+function renderPay() {
+  const d = stage.design;
+  app.innerHTML = `
+    <div class="step-card">
+      <div class="step-label">STEP 4 / 4 · 模拟支付</div>
+      <h2 class="step-title">确认下单</h2>
+      <p class="step-desc">现场单免运费（当场自取）。点击下方按钮模拟微信支付成功。</p>
+      <img class="m-preview" src="${designThumbURI(d)}" alt="">
+      <div style="display:flex;justify-content:space-between;padding:14px 4px 4px;font-size:14.5px;">
+        <span style="color:var(--ink-3)">${esc(d.name)} × ${stage.copies}</span>
+        <span style="font-weight:800">¥${(PRICE * stage.copies).toFixed(2)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 4px;font-size:14.5px;">
+        <span style="color:var(--ink-3)">运费（现场自取）</span><span style="color:var(--mint);font-weight:700">免运费</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 4px 10px;font-size:14.5px;">
+        <span style="color:var(--ink-3)">配送方式</span><span style="font-weight:700">现场交付</span>
+      </div>
+    </div>
+    <div class="pay-bar"><div class="pb-inner">
+      <div class="pb-amount">¥${(PRICE * stage.copies).toFixed(2)}</div>
+      <button class="btn btn-primary btn-pay" onclick="doPay()">模拟微信支付</button>
+    </div></div>`;
+}
+
+async function doPay() {
+  const btn = document.querySelector('.btn-pay');
+  if (btn) { btn.disabled = true; btn.textContent = '支付中…'; }
+  try {
+    const r = await SOD.createOrder({
+      designId: stage.design.id, designName: stage.design.name,
+      thumb: designThumbURI(stage.design), copies: stage.copies,
+      nickname: stage.user, ch
+    });
+    if (!r || !r.id) throw new Error('下单失败');
+    stage.order = r;
+    stage.step = 'done';
+    renderApp();
+    window.scrollTo(0, 0);
+  } catch (e) {
+    toast('下单失败：' + e.message + '，请重试');
+    if (btn) { btn.disabled = false; btn.textContent = '模拟微信支付'; }
+  }
+}
+
+/* ---------- S4/S5 订单跟踪 + 取件 ---------- */
+function renderDone() {
+  const o = stage.order;
+  const st = ORDER_STATUS[o.status];
+  app.innerHTML = `
+    <div class="code-card">
+      <div class="cc-label">取 件 码</div>
+      <div class="cc-num">${esc(o.code)}</div>
+      <div class="cc-queue">排队号 ${esc(o.queueNo)} · ${esc(o.designName)} ×${o.copies}</div>
+    </div>
+
+    <div style="height:14px;"></div>
+    <div class="queue-pos" id="qpos">
+      <div>
+        <div style="font-size:12px;color:#9A7B33;font-weight:700;">前方还有</div>
+        <div class="qp-num" id="qpnum">-</div>
+      </div>
+      <div style="font-size:12.5px;color:#9A7B33;line-height:1.6;">单在做 · 可以去逛展了，做好会推送提醒你<br>回来把这个码给工作人员看</div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-label">订单进度</div>
+      <div class="tl" id="tl"></div>
+      <div class="push-note" id="push-note">
+        📡 演示模拟「服务号模板消息」推送：状态一变，这里顶部会弹出通知条（真实环境为微信服务号/短信）。
+      </div>
+    </div>
+
+    <div style="height:12px;"></div>
+    <div class="step-card">
+      <div class="step-label">S6 · 离场转化</div>
+      <div style="font-size:13.5px;line-height:1.8;color:var(--ink-2);">
+        订单完成后：服务号关注引导 · 「再来一单」入口 · 推荐有礼。
+        渠道来源 <b>${esc(o.ch || ch)}</b> 已随订单落表，活动归因有据可查。
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        <button class="btn" style="flex:1;" onclick="toast('演示：跳转服务号关注页')">关注服务号</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="location.href='m.html?ch='+encodeURIComponent('${esc(o.ch || ch)}')">再来一单</button>
+      </div>
+    </div>`;
+
+  renderTimeline(o);
+}
+
+function renderTimeline(o) {
+  const steps = [
+    { key: 'pending',  label: '已下单', ts: o.createdAt, note: '等待摊位接单' },
+    { key: 'accepted', label: '已接单', ts: o.acceptedAt, note: '摊位已接单，排队制作' },
+    { key: 'printing', label: '制作中', ts: (o.status === 'printing' || STATUS_ORDER.indexOf(o.status) > 2) ? (o.printingAt || o.acceptedAt) : null, note: '正在打印模切' },
+    { key: 'ready',    label: '可取货', ts: o.readyAt, note: '做好了，凭码取件' },
+    { key: 'picked',   label: '已取件', ts: o.pickedAt, note: '交易完成，感谢！' }
+  ];
+  const curIdx = STATUS_ORDER.indexOf(o.status);
+  const tl = document.getElementById('tl');
+  if (!tl) return;
+  tl.innerHTML = steps.map((s, i) => `
+    <div class="tl-item ${i < curIdx ? 'done' : ''} ${i === curIdx ? 'now' : ''}">
+      <div class="tl-dot">${i < curIdx ? '✓' : i + 1}</div>
+      <div>
+        <div class="tl-name">${s.label}</div>
+        <div class="tl-time">${s.ts ? fmtClock(s.ts) + ' · ' + s.note : s.note}</div>
+      </div>
+    </div>`).join('');
+
+  /* 前方 N 单 */
+  const qnum = document.getElementById('qpnum');
+  if (qnum) {
+    const ahead = (window.__allOrders || []).filter(x =>
+      x.id !== o.id && ['pending', 'accepted', 'printing'].includes(x.status)).length;
+    qnum.textContent = ahead;
+    document.getElementById('qpos').style.display = o.status === 'picked' ? 'none' : '';
+  }
+}
+
+/* ---------- SSE：跟踪订单状态 + 模拟推送 ---------- */
+let lastStatus = null;
+subscribeEvents((state) => {
+  window.__allOrders = state.orders;
+  if (!stage.order) return;
+  const o = state.orders.find(x => x.id === stage.order.id);
+  if (!o) return;
+  stage.order = o;
+  if (stage.step === 'done') {
+    if (lastStatus && lastStatus !== o.status) {
+      const msg = {
+        accepted: '已接单：摊位接了你的单，排队制作中',
+        printing: '制作中：你的贴纸正在打印',
+        ready: '可取货：做好了！回摊位凭取件码 ' + o.code + ' 取货',
+        picked: '已取件：感谢使用，欢迎再来～'
+      }[o.status];
+      if (msg) pushToast(msg);
+    }
+    lastStatus = o.status;
+    renderTimeline(o);
+  }
+});
+
+function pushToast(msg) {
+  const el = document.createElement('div');
+  el.className = 'push-toast';
+  el.innerHTML = `<div class="pt-icon">📡</div><div>${esc(msg)}</div>`;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .4s'; }, 3800);
+  setTimeout(() => el.remove(), 4300);
+}
+
+renderApp();
+</script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 0 演示 · SOD 贴纸按需定制</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="demo.css">
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <div class="logo">贴</div>
+    <div>
+      <div class="t-title">SOD · Phase 0 履约演示</div>
+      <div class="t-sub">现场单（0a）场景全流程仿真 · 2026</div>
+    </div>
+    <div class="t-right"><span class="pill pill-live">云端模式 · 互联网可访</span></div>
+  </header>
+
+  <main class="hero">
+    <div class="hero-inner">
+      <div class="hero-logo">
+        <svg width="38" height="38" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="rgba(255,255,255,.25)"/><path d="M10 11h9l-7 9h8" stroke="white" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>
+      </div>
+      <h1 class="hero-title">先选一个演示场景</h1>
+      <p class="hero-sub">扫码 → 授权获客 → 当场制作下单 → 排队推送 → 凭码取件 · 全链路实时联动<br>演示时建议：电脑开「摊位屏 + 运营控制台」，观众手机扫码扮演用户</p>
+
+      <div class="scene-grid">
+        <div class="scene-card" onclick="startBooth()">
+          <span class="sc-badge" style="background:var(--brand-soft);color:var(--brand-dark)">Phase 0a · 推荐</span>
+          <div class="sc-icon" style="background:var(--brand-soft)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 10V5a1 1 0 0 1 1-1h5M20 14v5a1 1 0 0 1-1 1h-5M4 5l6 6M20 19l-6-6" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19" cy="5" r="2.6" fill="var(--brand)"/><circle cx="5" cy="19" r="2.6" fill="var(--brand)"/></svg>
+          </div>
+          <h3>活动现场场景</h3>
+          <p>漫展 / 快闪摊位。摊位屏出二维码，观众扫码进入手机流程：模拟微信授权（获客+1）→ 选预设设计 → 选份数 → 模拟支付 → 拿到取件码。工作人员在控制台接单、选设备制作，完成后手机收到「可取货」推送，摊位屏叫号。</p>
+          <div class="sc-links">
+            <button class="btn btn-primary">开始演示 →</button>
+          </div>
+        </div>
+
+        <div class="scene-card">
+          <span class="sc-badge" style="background:var(--cream-200);color:var(--ink-3)">Phase 0b · 复用同一套管道</span>
+          <div class="sc-icon" style="background:var(--sky-soft)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="3" stroke="var(--sky)" stroke-width="2"/><path d="M3 10h18" stroke="var(--sky)" stroke-width="2"/><path d="M8 15h4" stroke="var(--sky)" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <h3>常规线上场景</h3>
+          <p>与活动场景共用同一状态机、同一张订单表、同一条管道（差异仅参数：无现场排队叫号，自提/快递交付）。当前演示聚焦活动场景闭环，常规场景复用本管道，见文档 <b>FULFILLMENT-PRD.md §1.1</b>。</p>
+          <div class="sc-links">
+            <button class="btn" onclick="toast('0b 常规单与 0a 共用管道，差异仅参数——见 FULFILLMENT-PRD.md §1.1')">查看说明</button>
+          </div>
+        </div>
+      </div>
+
+      <p style="margin-top:28px;font-size:12.5px;color:var(--ink-4)">
+        演示数据存云端 Supabase，任何联网手机都可参与（无需同一 Wi-Fi）· 点控制台「重置演示」可清空重来 · 每个角色页面右上角有角色说明
+      </p>
+    </div>
+  </main>
+
+  <footer style="padding:18px;text-align:center;font-size:12px;color:var(--ink-4)">
+    SOD Phase 0 演示原型 · GitHub Pages + Supabase Realtime · 对应文档：FULFILLMENT-JOURNEY.md §2 六步主旅程
+  </footer>
+</div>
+
+<script src="vendor/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="demo.js"></script>
+<script>
+async function startBooth() {
+  const name = prompt('给这场活动起个名字（会作为渠道归因参数落表）：', '漫展快闪 · 首场实测');
+  if (name === null) return;
+  try {
+    await SOD.startSession(name);
+    location.href = 'booth.html';
+  } catch (e) {
+    alert('启动失败：' + e.message + '\n\n请检查 demo/config.js 是否已填 Supabase URL 和 anon key，以及 schema.sql 是否已执行。');
+  }
+}
+</script>
+</body>
+</html>
