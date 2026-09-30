@@ -164,7 +164,7 @@ begin
   select * into o from demo_orders where id = p_id for update;
   if o is null then return '订单不存在'; end if;
   if o.status <> 'ready' then return '订单不在可取货状态'; end if;
-  if o.code <> coalesce(p_code, o.code) then return '取件码不正确'; end if;
+  if p_code is null or o.code <> p_code then return '取件码不正确'; end if;
   update demo_orders set status = 'picked', picked_at = now() where id = p_id;
   return 'ok';
 end $$;

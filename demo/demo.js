@@ -8,7 +8,7 @@
 'use strict';
 
 const SOD = (() => {
-  let db = null, channel = null, listeners = [], fetchTimer = null, pumpTimer = null, fetching = false;
+  let db = null, channel = null, listeners = [], fetchTimer = null, pumpTimer = null, pollTimer = null, fetching = false;
   let state = null;
 
   function cfgProblem() {
@@ -102,6 +102,7 @@ const SOD = (() => {
           .on('postgres_changes', { event: '*', schema: 'public' }, refetch)
           .subscribe(st => { if (st === 'SUBSCRIBED') refetch(); });
       }
+      if (!pollTimer) pollTimer = setInterval(fetchState, 5000); /* Realtime 断线兜底：定时全量拉 */
       fetchState();
       return { unsubscribe() { listeners = listeners.filter(f => f !== fn); } };
     },

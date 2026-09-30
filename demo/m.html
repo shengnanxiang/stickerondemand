@@ -105,7 +105,7 @@ async function doAuth() {
   /* 随机微信昵称 */
   const names = ['板栗仔', '小熊软糖', '芝士桃桃', '波波奶茶', '月亮饲养员', '果子狸', '云朵收藏家', '白桃乌龙'];
   stage.user = names[Math.floor(Math.random() * names.length)];
-  await API.post('/api/customer');  // 获客 +1
+  try { await SOD.acquireCustomer(stage.user, ch); } catch (e) { console.warn('获客记录失败（不影响演示）', e); }
   toast('授权成功 · 欢迎 ' + stage.user);
   stage.step = 'pick';
   renderApp();

@@ -84,10 +84,11 @@
 SOD.startPump();
 
 /* ---------- 二维码：指向手机页（含渠道参数） ---------- */
-let boothUrl = '';
+let boothUrl = '', boothCh = null;
 function renderQR(state) {
-  if (boothUrl) return;
   const ch = state.session ? state.session.ch : 'booth-demo';
+  if (boothUrl && ch === boothCh) return;
+  boothCh = ch;
   boothUrl = location.origin + '/m.html?ch=' + encodeURIComponent(ch);
   const qr = qrcode(0, 'M');
   qr.addData(boothUrl);
