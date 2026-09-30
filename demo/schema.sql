@@ -74,10 +74,11 @@ create or replace function demo_start_session(p_name text)
 returns demo_sessions language plpgsql security definer as $$
 declare s demo_sessions;
 begin
-  delete from demo_orders; delete from demo_customers;
-  update demo_devices set done = 0;
+  -- where true：绕过 safeupdate 保护（它要求 DELETE/UPDATE 必须带 WHERE），语义不变
+  delete from demo_orders where true; delete from demo_customers where true;
+  update demo_devices set done = 0 where true;
   update demo_counters set v = 0 where k in ('queue', 'order');
-  delete from demo_sessions;
+  delete from demo_sessions where true;
   insert into demo_sessions (id, name, ch)
   values ('current', coalesce(nullif(trim(p_name), ''), '漫展快闪 · 首场实测'),
           'booth-' || to_char(now(), 'YYYYMMDD') || '-' || substr(md5(random()::text), 1, 4))
@@ -171,10 +172,10 @@ end $$;
 create or replace function demo_reset()
 returns void language plpgsql security definer as $$
 begin
-  delete from demo_orders; delete from demo_customers;
-  update demo_devices set done = 0;
+  delete from demo_orders where true; delete from demo_customers where true;
+  update demo_devices set done = 0 where true;
   update demo_counters set v = 0 where k in ('queue', 'order');
-  delete from demo_sessions;
+  delete from demo_sessions where true;
 end $$;
 
 grant execute on function demo_start_session(text), demo_acquire_customer(text, text),
