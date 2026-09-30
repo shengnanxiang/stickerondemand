@@ -125,7 +125,7 @@ begin
   return o;
 end $$;
 
--- 派单 + 设备仿真：为打印推进预留时长（每份 8-14 秒随机），到期幂等推进
+-- 派单 + 设备仿真：为打印推进预留时长（3-5 秒随机，不再按份数累乘），到期幂等推进
 create or replace function demo_assign_order(p_id text, p_device text)
 returns demo_orders language plpgsql security definer as $$
 declare o demo_orders; eta timestamptz; dur int;
@@ -133,7 +133,7 @@ begin
   update demo_orders set status = 'printing', device = p_device, printing_at = now()
   where id = p_id and status = 'accepted' returning * into o;
   if o is null then select * into o from demo_orders where id = p_id; return o; end if;
-  dur := (8 + floor(random() * 7))::int * greatest(1, o.copies);      -- 秒
+  dur := (3 + floor(random() * 3))::int;      -- 秒（演示缩短，不按份数累乘）
   eta := now() + (dur || ' seconds')::interval;
   update demo_orders set ready_at = eta where id = p_id;
   o.ready_at := eta;
