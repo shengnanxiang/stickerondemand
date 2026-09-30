@@ -73,6 +73,7 @@ const stage = { step: 'auth', design: null, copies: 1, order: null, user: null, 
 const ch = qs('ch') || 'booth-demo';
 document.getElementById('head-ch').textContent = '渠道：' + ch;
 const PRICE = 9.9; // 演示单价（现场特价）
+function sessionOpen() { return !!(window.__session && window.__session.name); }
 
 const app = document.getElementById('app');
 
@@ -87,6 +88,18 @@ function renderApp() {
 
 /* ---------- S2 模拟授权登录（获客） ---------- */
 function renderAuth() {
+  /* 未开场拦截：防止观众在工作人员开场前下单产生脏数据 */
+  if (!sessionOpen()) {
+    app.innerHTML = `
+      <div class="step-card">
+        <div class="step-label">STEP 1 / 4 · 授权登录</div>
+        <h2 class="step-title">演示尚未开始</h2>
+        <p class="step-desc">工作人员还没在首页开场。请先打开 <b>首页</b> 点「开始演示」，本页会自动刷新出授权按钮（也可手动点下方刷新）。</p>
+        <button class="wx-btn line" onclick="renderAuth()">刷新状态</button>
+        <div class="push-note">📡 真实环境：未开场的摊位不对外放码，扫码页会提示「稍候」。</div>
+      </div>`;
+    return;
+  }
   app.innerHTML = `
     <div class="step-card">
       <div class="step-label">STEP 1 / 4 · 授权登录</div>
@@ -199,6 +212,7 @@ function renderPay() {
 }
 
 async function doPay() {
+  if (!sessionOpen()) { toast('演示尚未开场或已重置，无法下单'); return; }
   const btn = document.querySelector('.btn-pay');
   if (btn) { btn.disabled = true; btn.textContent = '支付中…'; }
   try {
@@ -296,7 +310,12 @@ function renderTimeline(o) {
 let lastStatus = null;
 subscribeEvents((state) => {
   window.__allOrders = state.orders;
-  if (!stage.order) return;
+  window.__session = state.session;
+  /* 尚未下单：开场后自动刷新授权页，露出授权按钮 */
+  if (!stage.order) {
+    if (stage.step === 'auth' && sessionOpen()) renderAuth();
+    return;
+  }
   const o = state.orders.find(x => x.id === stage.order.id);
   if (!o) return;
   stage.order = o;
