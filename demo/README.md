@@ -16,7 +16,7 @@
 
 ### 2. 填配置
 
-把上述两个值填进 `demo/config.js`（此文件已在 `.gitignore`，不会提交到 GitHub）：
+把上述两个值填进 `demo/config.js`（该文件**随仓库部署**——anon key 配合 RLS 只读策略可安全公开，GitHub Pages 需要它在线上存在）：
 
 ```js
 window.SOD_CONFIG = {

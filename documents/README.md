@@ -19,6 +19,7 @@
 | `SoD市场调研和验证.md` | 市场规模（TAM/SAM/SOM）、人群验证、竞品情报（2026-09-29） |
 | `POD平台对标分析.md` | Redbubble/StickerApp/StickerYou/柔造 全景对标（2026-09-29） |
 | `StickerMule深度分析.md` | Sticker Mule 官网八页深拆 + 三收入线对照（2026-09-29） |
+| `SESSION-2026-09-30.md` | 工作纪要——云端化演示上线全记录：架构决策、6 个坑及解法、13 步端到端验证、待办 |
 | `BRIEF.md` | 内部战略简报——把「市场→用户→定义→终局→Phase 0」一次讲透（配套幻灯片 `pitch/C-internal/`） |
 | `Sticker On Demand - PRD (legacy).md` | 初版 PRD，已被 `SOD.md` + `WEB-APP-PRD.md` 取代，留档备查 |
 
