@@ -89,7 +89,10 @@ function renderQR(state) {
   const ch = state.session ? state.session.ch : 'booth-demo';
   if (boothUrl && ch === boothCh) return;
   boothCh = ch;
-  boothUrl = 'm.html?ch=' + encodeURIComponent(ch); /* 相对路径：自动带 /stickerondemand/demo/ 前缀，避免 project-page 下 location.origin 缺仓库名导致 404 */
+  /* 二维码内容必须是绝对 URL，微信扫码才可直接打开；
+     用 new URL 基于 booth.html 自身地址解析，自动继承仓库前缀/子目录，
+     兼容 GitHub Pages 项目页与帽子云根域名两种托管 */
+  boothUrl = new URL('m.html', location.href).href + '?ch=' + encodeURIComponent(ch);
   const qr = qrcode(0, 'M');
   qr.addData(boothUrl);
   qr.make();
