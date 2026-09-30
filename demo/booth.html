@@ -89,7 +89,7 @@ function renderQR(state) {
   const ch = state.session ? state.session.ch : 'booth-demo';
   if (boothUrl && ch === boothCh) return;
   boothCh = ch;
-  boothUrl = location.origin + '/m.html?ch=' + encodeURIComponent(ch);
+  boothUrl = 'm.html?ch=' + encodeURIComponent(ch); /* 相对路径：自动带 /stickerondemand/demo/ 前缀，避免 project-page 下 location.origin 缺仓库名导致 404 */
   const qr = qrcode(0, 'M');
   qr.addData(boothUrl);
   qr.make();
