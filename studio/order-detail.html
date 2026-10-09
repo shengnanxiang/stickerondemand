@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>订单详情 · SOD 供应端</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../assets/css/app.css">
+<link rel="stylesheet" href="studio.css">
+<style>
+  .dl { display: grid; grid-template-columns: 84px minmax(0,1fr); gap: 6px 14px; font-size: 13.5px; }
+  .dl .k { color: var(--ink-3); }
+  .dl .v { font-weight: 600; word-break: break-all; }
+  .step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line-strong); flex: none; margin-top: 5px; }
+  .step-dot.is-done { background: var(--mint); }
+  .step-dot.is-cur { background: var(--brand); box-shadow: 0 0 0 4px var(--brand-soft); }
+</style>
+</head>
+<body>
+<div class="biz-app" id="app"></div>
+<div class="toast-wrap"></div>
+
+<script src="../demo/vendor/supabase.min.js"></script>
+<script src="../demo/config.js"></script>
+<script src="biz-sdk.js"></script>
+<script src="studio-nav.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = BizUtil.qs;
+  var session = Biz.requireSession();
+  if (!session) return;
+
+  var orderId = BizUtil.param('id');
+  StudioNav.mount('home', 0);
+
+  var FLOW = [
+    { k: 'pending',  t: '待支付', f: 'createdAt' },
+    { k: 'paid',     t: '已支付', f: 'paidAt' },
+    { k: 'accepted', t: '已接单', f: 'acceptedAt' },
+    { k: 'making',   t: '制作中', f: 'madeAt' },
+    { k: 'shipped',  t: '已发货', f: 'shippedAt' },
+    { k: 'done',     t: '已完成', f: 'doneAt' }
+  ];
+  var IDX = { pending: 0, paid: 1, accepted: 2, making: 3, shipped: 4, done: 5 };
+
+  function render(state) {
+    var o = Biz.getOrder(orderId);
+    var main = $('#app .biz-main');
+    if (!o || o.supplierId !== session.id) {
+      main.innerHTML = '<div class="biz-empty"><div class="illu">🔍</div>订单不存在或不属于本店。<br>' +
+        '<a class="btn btn-outline btn-sm mt-12" href="index.html">返回工作台</a></div>';
+      return;
+    }
+
+    var cur = o.status === 'closed' ? -2 : (o.status === 'aftersale' ? 5 : (IDX[o.status] != null ? IDX[o.status] : -1));
+
+    main.innerHTML =
+      '<div class="biz-page-title">' +
+        '<a class="btn btn-ghost btn-sm" href="index.html">← 工作台</a>' +
+        '<h1>订单详情</h1>' +
+        '<span class="biz-live"><span class="dot"></span>实时同步中</span>' +
+        '<span class="grow"></span>' + BizUtil.statusPill(o.status) +
+      '</div>' +
+
+      '<div class="biz-detail-grid">' +
+        '<div class="stack gap-16">' +
+
+          /* 贴纸快照 */
+          '<div class="card card-pad">' +
+            '<div class="t-h3 mb-12">贴纸快照（' + (o.items || []).length + ' 件设计）</div>' +
+            '<div class="biz-thumb-list">' +
+              (o.items || []).map(function (it) {
+                return '<div class="cell">' +
+                  '<div class="thumb-sm"><img src="' + (it.thumb || '') + '" alt=""></div>' +
+                  '<div class="cap">' + BizUtil.escapeHtml(it.name) + ' × ' + it.copies + '</div></div>';
+              }).join('') +
+            '</div>' +
+            (o.note ? '<div class="notice notice-sun mt-12" style="display:flex;gap:10px"><span>📝</span>' +
+              '<span><b>用户备注：</b>' + BizUtil.escapeHtml(o.note) + '</span></div>' : '') +
+          '</div>' +
+
+          /* 收货地址 */
+          '<div class="card card-pad">' +
+            '<div class="t-h3 mb-12">收货信息</div>' +
+            '<div class="dl">' +
+              '<span class="k">收货人</span><span class="v">' + BizUtil.escapeHtml(o.address.name || '-') + '</span>' +
+              '<span class="k">电话</span><span class="v">' + BizUtil.escapeHtml(o.address.phone || '-') + '</span>' +
+              '<span class="k">地区</span><span class="v">' + BizUtil.escapeHtml(o.address.region || '-') + '</span>' +
+              '<span class="k">详细地址</span><span class="v">' + BizUtil.escapeHtml(o.address.detail || '-') + '</span>' +
+              '<span class="k">买家</span><span class="v">' + BizUtil.escapeHtml(o.userId || '-') + '</span>' +
+            '</div>' +
+          '</div>' +
+
+          /* 状态时间线 */
+          '<div class="card card-pad">' +
+            '<div class="t-h3 mb-12">状态时间线</div>' +
+            (o.status === 'closed'
+              ? '<div class="notice notice-danger" style="display:flex;gap:10px"><span>⚠️</span>' +
+                '<span><b>订单已关闭</b>' + (o.closedAt ? ' · ' + BizUtil.fmtTime(o.closedAt) : '') +
+                (o.couponType === '__refund' ? '（售后退款）' : '（超时未支付）') + '</span></div>'
+              : '<div class="stack gap-10">' + FLOW.map(function (s, i) {
+                  var cls = i < cur ? 'is-done' : (i === cur ? 'is-cur' : '');
+                  var tv = o[s.f] ? ' · ' + BizUtil.fmtTime(o[s.f]) : '';
+                  return '<div class="row gap-12"><span class="step-dot ' + cls + '"></span>' +
+                    '<span class="t-sm' + (i === cur ? ' strong' : (i < cur ? ' muted-2' : ' muted')) + '">' +
+                    s.t + (i <= cur && tv ? '<span class="t-tiny muted">' + tv + '</span>' : '') + '</span></div>';
+                }).join('') + '</div>') +
+            (o.status === 'aftersale' ? '<div class="notice notice-danger mt-12" style="display:flex;gap:10px"><span>🛠️</span>' +
+              '<span><b>售后处理中</b>，请到「售后处理」页面跟进工单。</span></div>' : '') +
+          '</div>' +
+
+          /* 物流轨迹 */
+          ((o.tracks || []).length ? '<div class="card card-pad">' +
+            '<div class="t-h3 mb-12">物流轨迹</div>' +
+            '<div class="stack gap-10">' +
+              '<div class="row gap-8"><span class="t-sm strong">' + BizUtil.escapeHtml(o.shipCompany || '快递') + '</span>' +
+                '<span class="t-sm muted">' + BizUtil.escapeHtml(o.shipNo || '') + '</span>' +
+                '<button class="btn btn-ghost btn-xs" data-copy="' + BizUtil.escapeHtml(o.shipNo || '') + '">复制单号</button></div>' +
+              o.tracks.slice().reverse().map(function (t, i) {
+                return '<div class="row gap-12"><span class="step-dot ' + (i === 0 ? 'is-cur' : 'is-done') + '"></span>' +
+                  '<span class="t-sm' + (i === 0 ? ' strong' : ' muted-2') + '">' + BizUtil.escapeHtml(t.d) +
+                  '<span class="t-tiny muted"> · ' + BizUtil.fmtTime(t.createdAt) + '</span></span></div>';
+              }).join('') +
+            '</div></div>' : '') +
+
+        '</div>' +
+
+        /* 右侧：金额 + 处理动作 */
+        '<div class="stack gap-16">' +
+          '<div class="card card-pad">' +
+            '<div class="t-h3 mb-12">结算明细</div>' +
+            '<div class="stack gap-8">' +
+              '<div class="price-row"><span class="k">商品（' + o.n + ' 张）</span>' +
+                '<span class="v">¥' + BizUtil.fmtFen(o.subtotal) + '</span></div>' +
+              '<div class="price-row"><span class="k">运费</span>' +
+                '<span class="v">' + (o.shipping === 0 ? '包邮' : '¥' + BizUtil.fmtFen(o.shipping)) + '</span></div>' +
+              (o.discount ? '<div class="price-row is-discount"><span class="k">' +
+                (o.couponType === 'freeship' ? '免运费券' : '通用券') + '</span>' +
+                '<span class="v">-¥' + BizUtil.fmtFen(o.discount) + '</span></div>' : '') +
+              '<div class="price-total mt-8"><span class="k">实付</span>' +
+                '<span class="v"><span class="cur">¥</span>' + BizUtil.fmtFen(o.amount) + '</span></div>' +
+            '</div>' +
+            '<div class="t-tiny muted mt-8 center">订单号 ' + o.id + '</div>' +
+          '</div>' +
+
+          '<div class="card card-pad">' +
+            '<div class="t-h3 mb-12">处理动作</div>' +
+            actionsHtml(o) +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function actionsHtml(o) {
+    var busy = '<div class="notice" style="display:flex;gap:10px"><span>ℹ️</span>' +
+      '<span class="t-sm">等待用户完成支付，付款后自动进入待接单。</span></div>';
+    switch (o.status) {
+      case 'pending': return busy;
+      case 'paid':
+        return '<button class="btn btn-primary btn-block" data-act="accept">接单</button>' +
+          '<p class="t-tiny muted center mt-8">确认耗材与排期后接单</p>';
+      case 'accepted':
+        return '<button class="btn btn-primary btn-block" data-act="make">开始制作</button>' +
+          '<p class="t-tiny muted center mt-8">接单后进入印刷 / 模切工序</p>';
+      case 'making':
+        return '<div class="biz-ship-form stack gap-10">' +
+            '<div class="full"><label class="t-sm strong">物流公司</label>' +
+              '<select class="select mt-4" id="f-company">' +
+                '<option>中通快递</option><option>圆通速递</option><option>韵达快递</option>' +
+                '<option>顺丰速运</option><option>邮政快递包裹</option></select></div>' +
+            '<div class="full"><label class="t-sm strong">运单号（可留空自动生成）</label>' +
+              '<input class="input mt-4" id="f-no" placeholder="例如 ZT7720091834561"></div>' +
+            '<button class="btn btn-primary btn-block mt-4" data-act="ship">确认发货</button>' +
+          '</div>';
+      case 'shipped':
+        return '<div class="notice notice-sky" style="display:flex;gap:10px;background:var(--sky-soft);border-color:#C9DFF1;color:#2F6E9F">' +
+            '<span>🚚</span><span class="t-sm"><b>已发货</b><br>用户签收后订单完成，货款自动入账。</span></div>' +
+          '<button class="btn btn-outline btn-block mt-8" data-act="complete">标记完成（用户已签收）</button>';
+      case 'done':
+        return '<div class="notice notice-mint" style="display:flex;gap:10px"><span>✅</span>' +
+          '<span class="t-sm"><b>订单已完成</b><br>货款 ¥' + BizUtil.fmtFen(o.amount) + ' 已入账，可在收入统计查看。</span></div>';
+      case 'aftersale':
+        return '<a class="btn btn-primary btn-block" href="aftersales.html">查看售后工单</a>';
+      default:
+        return busy;
+    }
+  }
+
+  /* 动作点击（事件委托） */
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    var act = btn.dataset.act;
+    btn.disabled = true;
+
+    var p;
+    if (act === 'accept') p = Biz.acceptOrder(orderId);
+    else if (act === 'make') p = Biz.makeOrder(orderId);
+    else if (act === 'ship') {
+      var c = $('#f-company'), n = $('#f-no');
+      p = Biz.shipOrder(orderId, c ? c.value : '', n ? n.value.trim() : '');
+    }
+    else if (act === 'complete') p = Biz.completeOrder(orderId);
+    else { btn.disabled = false; return; }
+
+    p.then(function (r) {
+      if (r && r.ok) {
+        BizUtil.toast('操作成功', 'ok');
+      } else {
+        BizUtil.toast((r && r.msg) || '操作失败', 'err');
+        btn.disabled = false;
+      }
+    }).catch(function (err) {
+      BizUtil.toast('云端连接失败：' + (err.message || err), 'err');
+      btn.disabled = false;
+    });
+  });
+
+  /* 复制单号 */
+  document.addEventListener('click', function (e) {
+    var cp = e.target.closest('[data-copy]');
+    if (!cp) return;
+    if (navigator.clipboard) navigator.clipboard.writeText(cp.dataset.copy);
+    BizUtil.toast('运单号已复制', 'ok');
+  });
+
+  Biz.subscribe(render);
+})();
+</script>
+</body>
+</html>

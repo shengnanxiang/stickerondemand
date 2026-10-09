@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>店铺设置 · SOD 供应端</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../assets/css/app.css">
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
+<div class="biz-app" id="app"></div>
+<div class="toast-wrap"></div>
+
+<script src="../demo/vendor/supabase.min.js"></script>
+<script src="../demo/config.js"></script>
+<script src="biz-sdk.js"></script>
+<script src="studio-nav.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = BizUtil.qs;
+  var session = Biz.requireSession();
+  if (!session) return;
+
+  StudioNav.mount('settings', 0);
+  var main = $('#app .biz-main');
+  var inited = false;
+
+  function render(state) {
+    var s = Biz.getSupplier(session.id);
+    if (!s) { main.innerHTML = '<div class="biz-empty">云端还没有店铺数据</div>'; return; }
+
+    main.innerHTML =
+      '<div class="biz-page-title"><h1>店铺设置</h1>' +
+        '<span class="biz-live"><span class="dot"></span>实时同步中</span></div>' +
+
+      '<div class="biz-detail-grid">' +
+        '<div class="card card-pad">' +
+          '<div class="t-h3 mb-8">基本信息</div>' +
+          '<div class="biz-setting-row">' +
+            '<span class="k">店铺名称</span>' +
+            '<input class="input" id="s-name" value="' + BizUtil.escapeHtml(s.name) + '" disabled>' +
+          '</div>' +
+          '<div class="biz-setting-row">' +
+            '<span class="k">店铺代码</span>' +
+            '<input class="input" value="' + BizUtil.escapeHtml(s.id) + '" disabled>' +
+          '</div>' +
+          '<div class="biz-setting-row">' +
+            '<span class="k">服务地区<span class="t-tiny muted">按收货地址自动派单，由云端配置</span></span>' +
+            '<input class="input" value="' + BizUtil.escapeHtml((s.regionCodes || []).join('、')) + '" disabled>' +
+          '</div>' +
+          '<div class="biz-setting-row">' +
+            '<span class="k">自提地址</span>' +
+            '<input class="input" id="s-address" value="' + BizUtil.escapeHtml(s.address || '') + '" placeholder="买家上门自提的地址">' +
+          '</div>' +
+          '<div class="biz-setting-row">' +
+            '<span class="k">营业时间</span>' +
+            '<input class="input" id="s-hours" value="' + BizUtil.escapeHtml(s.openHours || '') + '" placeholder="例如 09:00 - 20:00">' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="stack gap-16">' +
+          '<div class="card card-pad">' +
+            '<div class="t-h3 mb-8">接单与耗材</div>' +
+            '<div class="biz-setting-row">' +
+              '<span class="k">每日接单上限</span>' +
+              '<input class="input" id="s-cap" type="number" min="1" max="500" value="' + s.dailyCap + '">' +
+            '</div>' +
+            '<div class="biz-setting-row">' +
+              '<span class="k">云母纸余量<span class="t-tiny muted">张，低于上限 20% 标红预警</span></span>' +
+              '<input class="input" id="s-mica" type="number" min="0" max="9999" value="' + s.stockMica + '">' +
+            '</div>' +
+            '<div class="biz-setting-row">' +
+              '<span class="k">亚银纸余量<span class="t-tiny muted">张，低于上限 20% 标红预警</span></span>' +
+              '<input class="input" id="s-silver" type="number" min="0" max="9999" value="' + s.stockSilver + '">' +
+            '</div>' +
+            '<button class="btn btn-primary btn-block mt-16" id="btn-save">保存设置</button>' +
+            '<p class="t-tiny muted center mt-8">保存后立即生效，多端实时同步</p>' +
+          '</div>' +
+
+          '<div class="card card-pad">' +
+            '<div class="t-h3 mb-8">危险操作</div>' +
+            '<div class="t-tiny muted" style="line-height:1.8">清空本演示项目的全部业务订单、售后与提现记录（店铺配置保留）。' +
+              '适用于演示前重置数据，多个供应商共用一份数据时慎用。</div>' +
+            '<button class="btn btn-ghost btn-block mt-12" id="btn-reset" style="color:var(--danger)">重置演示数据</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    inited = true;
+  }
+
+  $('#app').addEventListener('click', function (e) {
+    if (e.target.closest('#btn-save')) {
+      var btn = e.target.closest('#btn-save');
+      btn.disabled = true; btn.textContent = '保存中…';
+      Biz.saveSettings(session.id, {
+        address: ($('#s-address') || {}).value || '',
+        open_hours: ($('#s-hours') || {}).value || '',
+        daily_cap: parseInt(($('#s-cap') || {}).value, 10) || 0,
+        stock_mica: parseInt(($('#s-mica') || {}).value, 10) || 0,
+        stock_silver: parseInt(($('#s-silver') || {}).value, 10) || 0
+      }).then(function (r) {
+        if (r && r.ok) BizUtil.toast('设置已保存', 'ok');
+        else BizUtil.toast((r && r.msg) || '保存失败', 'err');
+        btn.disabled = false; btn.textContent = '保存设置';
+      }).catch(function (err) {
+        BizUtil.toast('云端连接失败：' + (err.message || err), 'err');
+        btn.disabled = false; btn.textContent = '保存设置';
+      });
+      return;
+    }
+    if (e.target.closest('#btn-reset')) {
+      if (!confirm('确认重置演示数据？全部 biz_ 订单/售后/提现记录将被清空。')) return;
+      Biz.reset().then(function () { BizUtil.toast('演示数据已重置', 'ok'); })
+        .catch(function (err) { BizUtil.toast('重置失败：' + (err.message || err), 'err'); });
+    }
+  });
+
+  /* 注意：render 每次订阅回调都会全量重建 DOM，会把正在编辑的输入框冲掉。
+     折中：输入框聚焦时挂起重渲染，失焦后恢复。 */
+  var suspended = false;
+  document.addEventListener('focusin', function (e) {
+    if (e.target.matches('.biz-main input, .biz-main select, .biz-main textarea')) suspended = true;
+  });
+  document.addEventListener('focusout', function () { suspended = false; });
+
+  Biz.subscribe(function (state) { if (!suspended) render(state); });
+  render(null);
+})();
+</script>
+</body>
+</html>

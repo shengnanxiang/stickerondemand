@@ -327,8 +327,8 @@
     var n = (state.orders.length + 1 + '').padStart(3, '0');
     return 'SO' + s + n;
   }
-  var STATUS_TEXT = { pending: '待支付', making: '制作中', shipped: '已发货', done: '已完成', closed: '已关闭' };
-  var STATUS_PILL = { pending: 'pill-sun', making: 'pill-brand', shipped: 'pill-sky', done: 'pill-mint', closed: 'pill-gray' };
+  var STATUS_TEXT = { pending: '待支付', paid: '待接单', accepted: '已接单', making: '制作中', shipped: '已发货', done: '已完成', closed: '已关闭', aftersale: '售后中' };
+  var STATUS_PILL = { pending: 'pill-sun', paid: 'pill-danger', accepted: 'pill-grape', making: 'pill-brand', shipped: 'pill-sky', done: 'pill-mint', closed: 'pill-gray', aftersale: 'pill-danger' };
 
   var orders = {
     all: function () { return state.orders.slice().sort(function (a, b) { return b.createdAt - a.createdAt; }); },
@@ -347,6 +347,19 @@
     pay: function (id) {
       var o = this.get(id); if (o && o.status === 'pending') { o.status = 'making'; o.paidAt = Date.now(); save(); }
       return o;
+    },
+    /* 云端订单优先：支付 / 取消 / 签收（无云端时本地降级） */
+    payCloud: function (id) {
+      if (window.Cloud && Cloud.ok()) return Cloud.pay(id).then(function (r) {
+        if (r && r.ok) { var o = orders.get(id); if (o) { o.status = 'paid'; o.paidAt = Date.now(); save(); } }
+        return r;
+      });
+      return Promise.resolve({ ok: !!orders.pay(id) });
+    },
+    cancelCloud: function (id) {
+      if (window.Cloud && Cloud.ok()) return Cloud.userAction(id, 'cancel');
+      var o = this.get(id); if (o) { o.status = 'closed'; o.closedAt = Date.now(); save(); }
+      return Promise.resolve({ ok: true });
     }
   };
 

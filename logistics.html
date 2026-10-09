@@ -16,6 +16,9 @@
 <script src="assets/js/store.js"></script>
 <script src="assets/js/pricing.js"></script>
 <script src="assets/js/ui.js"></script>
+<script src="demo/vendor/supabase.min.js"></script>
+<script src="demo/config.js"></script>
+<script src="assets/js/cloud.js"></script>
 <script>
 (function () {
   'use strict';
@@ -24,72 +27,108 @@
   UI.mountNav('orders');
 
   var order = Store.orders.get(UI.param('id'));
-  if (!order || !order.logistics) { location.href = 'orders.html'; return; }
+  if ((!order || !order.logistics) && Cloud.ok()) order = Cloud.get(UI.param('id'));
+  if (!order) { location.href = 'orders.html'; return; }
   var lg = order.logistics;
 
-  $('#page').innerHTML =
-    '<div class="row gap-12 mb-16">' +
-      '<a class="btn btn-ghost btn-sm" href="order-detail.html?id=' + order.id + '"><span class="ico" id="i-b"></span>订单详情</a>' +
-    '</div>' +
-
-    '<div class="card card-pad">' +
-      '<div class="row gap-12">' +
-        '<span class="pill pill-sky">运输中</span>' +
-        '<span class="t-sm strong">' + UI.escapeHtml(lg.company) + '</span>' +
-      '</div>' +
-      '<div class="row between mt-12">' +
-        '<div>' +
-          '<div class="t-tiny muted">运单号</div>' +
-          '<div class="t-sm strong">' + lg.no + '</div>' +
+  function render() {
+    order = Store.orders.get(order.id) || (Cloud.ok() ? Cloud.get(order.id) : null) || order;
+    lg = order.logistics;
+    if (!lg) {
+      /* 云端订单尚未发货：显示等待页而非跳走 */
+      $('#page').innerHTML =
+        '<div class="row gap-12 mb-16">' +
+          '<a class="btn btn-ghost btn-sm" href="order-detail.html?id=' + order.id + '"><span class="ico" id="i-b"></span>订单详情</a>' +
+          '<span class="pill pill-mint"><span class="dot"></span>&nbsp;实时同步中</span>' +
         '</div>' +
-        '<button class="btn btn-outline btn-xs" id="btn-copy">复制单号</button>' +
+        '<div class="card card-pad"><div style="padding:56px 20px;text-align:center;color:var(--ink-3);font-size:13.5px">' +
+          '<div style="font-size:34px;opacity:.45">🚚</div>' +
+          '<p class="t-sm muted" style="margin-top:10px">商家还未发货。<br>发货后物流信息会自动出现在这里。</p>' +
+        '</div></div>';
+      var ib = $('#i-b'); if (ib) ib.innerHTML = UI.icon('chevronL');
+      return;
+    }
+
+    $('#page').innerHTML =
+      '<div class="row gap-12 mb-16">' +
+        '<a class="btn btn-ghost btn-sm" href="order-detail.html?id=' + order.id + '"><span class="ico" id="i-b"></span>订单详情</a>' +
+        (Cloud.ok() && order.isCloud ? '<span class="pill pill-mint"><span class="dot"></span>&nbsp;实时同步中</span>' : '') +
       '</div>' +
-    '</div>' +
 
-    '<div class="card card-pad mt-16">' +
-      '<span class="t-h3">物流轨迹</span>' +
-      '<div class="timeline mt-16">' +
-        lg.tracks.slice().sort(function (a, b) { return b.t - a.t; }).map(function (t, i) {
-          return '<div class="tl-item' + (i === 0 ? ' is-current' : ' is-done') + '">' +
-            '<div class="tl-node"></div>' +
-            '<div class="col">' +
-              '<span class="t-sm' + (i === 0 ? ' strong' : ' muted-2') + '">' + UI.escapeHtml(t.d) + '</span>' +
-              '<span class="t-tiny muted mt-4">' + Store.util.fmtTime(t.t) + '</span>' +
-            '</div></div>';
-        }).join('') +
+      '<div class="card card-pad">' +
+        '<div class="row gap-12">' +
+          '<span class="pill pill-sky">运输中</span>' +
+          '<span class="t-sm strong">' + UI.escapeHtml(lg.company) + '</span>' +
+        '</div>' +
+        '<div class="row between mt-12">' +
+          '<div>' +
+            '<div class="t-tiny muted">运单号</div>' +
+            '<div class="t-sm strong">' + lg.no + '</div>' +
+          '</div>' +
+          '<button class="btn btn-outline btn-xs" id="btn-copy">复制单号</button>' +
+        '</div>' +
       '</div>' +
-    '</div>' +
 
-    '<div class="card card-pad mt-16">' +
-      '<span class="t-h3">收货信息</span>' +
-      '<div class="mt-8">' +
-        '<div class="t-sm strong">' + UI.escapeHtml(order.address.name) + ' ' +
-          '<span class="muted">' + UI.escapeHtml(order.address.phone) + '</span></div>' +
-        '<div class="t-sm muted mt-4">' + UI.escapeHtml(order.address.region + ' ' + order.address.detail) + '</div>' +
+      '<div class="card card-pad mt-16">' +
+        '<span class="t-h3">物流轨迹</span>' +
+        '<div class="timeline mt-16">' +
+          lg.tracks.slice().sort(function (a, b) { return b.t - a.t; }).map(function (t, i) {
+            return '<div class="tl-item' + (i === 0 ? ' is-current' : ' is-done') + '">' +
+              '<div class="tl-node"></div>' +
+              '<div class="col">' +
+                '<span class="t-sm' + (i === 0 ? ' strong' : ' muted-2') + '">' + UI.escapeHtml(t.d) + '</span>' +
+                '<span class="t-tiny muted mt-4">' + Store.util.fmtTime(t.t) + '</span>' +
+              '</div></div>';
+          }).join('') +
+        '</div>' +
       '</div>' +
-    '</div>' +
 
-    '<div class="notice mt-16" style="display:flex;gap:10px">' +
-      '<span class="notice-icon">' + UI.icon('info') + '</span>' +
-      '<span>签收后订单会自动完成。物流长时间没更新可以联系我们。</span>' +
-    '</div>' +
+      '<div class="card card-pad mt-16">' +
+        '<span class="t-h3">收货信息</span>' +
+        '<div class="mt-8">' +
+          '<div class="t-sm strong">' + UI.escapeHtml(order.address.name) + ' ' +
+            '<span class="muted">' + UI.escapeHtml(order.address.phone) + '</span></div>' +
+          '<div class="t-sm muted mt-4">' + UI.escapeHtml(order.address.region + ' ' + order.address.detail) + '</div>' +
+        '</div>' +
+      '</div>' +
 
-    '<div class="od-actions" style="margin-top:24px">' +
-      '<button class="btn btn-primary btn-block" id="btn-sign">模拟签收</button>' +
-    '</div>';
+      '<div class="notice mt-16" style="display:flex;gap:10px">' +
+        '<span class="notice-icon">' + UI.icon('info') + '</span>' +
+        '<span>签收后订单会自动完成。物流长时间没更新可以联系我们。</span>' +
+      '</div>' +
 
-  $('#i-b').innerHTML = UI.icon('chevronL');
+      '<div class="od-actions" style="margin-top:24px">' +
+        '<button class="btn btn-primary btn-block" id="btn-sign">模拟签收</button>' +
+      '</div>';
 
-  $('#btn-copy').addEventListener('click', function () {
-    if (navigator.clipboard) navigator.clipboard.writeText(lg.no);
-    UI.toast('运单号已复制', 'ok');
-  });
+    var ib = $('#i-b'); if (ib) ib.innerHTML = UI.icon('chevronL');
 
-  $('#btn-sign').addEventListener('click', function () {
-    Store.orders.setStatus(order.id, 'done');
-    UI.toast('已签收，订单完成', 'ok');
-    setTimeout(function () { location.href = 'order-detail.html?id=' + order.id; }, 600);
-  });
+    $('#btn-copy').addEventListener('click', function () {
+      if (navigator.clipboard) navigator.clipboard.writeText(lg.no);
+      UI.toast('运单号已复制', 'ok');
+    });
+
+    $('#btn-sign').addEventListener('click', function () {
+      var btn = $('#btn-sign');
+      btn.disabled = true; btn.textContent = '签收中…';
+      var p;
+      if (Cloud.ok() && order.isCloud) p = Cloud.userAction(order.id, 'confirm');
+      else p = Promise.resolve({ ok: !!Store.orders.setStatus(order.id, 'done') });
+      p.then(function (r) {
+        if (r && r.ok) {
+          UI.toast('已签收，订单完成', 'ok');
+          setTimeout(function () { location.href = 'order-detail.html?id=' + order.id; }, 600);
+        } else {
+          btn.disabled = false; btn.textContent = '模拟签收';
+          UI.toast((r && r.msg) || '签收失败', 'err');
+        }
+      });
+    });
+  }
+
+  render();
+  /* 云端物流实时刷新（供应商发货后自动出现轨迹） */
+  if (Cloud.ok() && order.isCloud) Cloud.subscribe(function () { render(); });
 })();
 </script>
 </body>

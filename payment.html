@@ -76,6 +76,9 @@
 <script src="assets/js/store.js"></script>
 <script src="assets/js/pricing.js"></script>
 <script src="assets/js/ui.js"></script>
+<script src="demo/vendor/supabase.min.js"></script>
+<script src="demo/config.js"></script>
+<script src="assets/js/cloud.js"></script>
 <script>
 (function () {
   'use strict';
@@ -88,6 +91,7 @@
   $('#i-info').innerHTML = UI.icon('info');
 
   var order = Store.orders.get(UI.param('id'));
+  if (!order && Cloud.ok()) order = Cloud.get(UI.param('id'));
   if (!order) {
     location.href = 'orders.html';
     return;
@@ -152,9 +156,20 @@
 
   $('#btn-paid').addEventListener('click', function () {
     clearInterval(t);
-    Store.orders.pay(order.id);
-    UI.toast('支付成功', 'ok');
-    setTimeout(function () { location.href = 'order-detail.html?id=' + order.id; }, 600);
+    var btn = $('#btn-paid');
+    btn.disabled = true; btn.textContent = '支付中…';
+    Store.orders.payCloud(order.id).then(function (r) {
+      if (r && r.ok) {
+        UI.toast('支付成功', 'ok');
+        setTimeout(function () { location.href = 'order-detail.html?id=' + order.id; }, 600);
+      } else {
+        btn.disabled = false; btn.textContent = '模拟支付成功';
+        UI.toast((r && r.msg) || '支付失败，请重试', 'err');
+      }
+    }).catch(function (e) {
+      btn.disabled = false; btn.textContent = '模拟支付成功';
+      UI.toast('云端连接失败：' + (e.message || e), 'err');
+    });
   });
   $('#btn-later').addEventListener('click', function () {
     UI.toast('订单已保留，可在「我的订单」继续支付');

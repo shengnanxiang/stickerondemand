@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>售后处理 · SOD 供应端</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../assets/css/app.css">
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
+<div class="biz-app" id="app"></div>
+<div class="toast-wrap"></div>
+
+<script src="../demo/vendor/supabase.min.js"></script>
+<script src="../demo/config.js"></script>
+<script src="biz-sdk.js"></script>
+<script src="studio-nav.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = BizUtil.qs;
+  var session = Biz.requireSession();
+  if (!session) return;
+
+  var filter = 'open';
+  var lastBadge = -1;
+
+  function render(state) {
+    /* 导航角标：待处理售后数（首挂载 + 数量变化时才重挂，避免闪烁） */
+    var openCount = Biz.myAftersales(session.id).filter(function (a) { return a.status === 'open'; }).length;
+    if (openCount !== lastBadge) {
+      StudioNav.mount('aftersales', openCount);
+      lastBadge = openCount;
+    }
+
+    var list = Biz.myAftersales(session.id);
+    var shown = filter === 'open' ? list.filter(function (a) { return a.status === 'open'; })
+                                   : (filter === 'done' ? list.filter(function (a) { return a.status === 'done'; }) : list);
+
+    $('#app .biz-main').innerHTML =
+      '<div class="biz-page-title"><h1>售后处理</h1>' +
+        '<span class="biz-live"><span class="dot"></span>实时同步中</span></div>' +
+
+      '<div class="tabs wrap mb-16">' +
+        '<button class="tab' + (filter === 'open' ? ' is-active' : '') + '" data-k="open">待处理</button>' +
+        '<button class="tab' + (filter === 'done' ? ' is-active' : '') + '" data-k="done">已完成</button>' +
+        '<button class="tab' + (filter === 'all' ? ' is-active' : '') + '" data-k="all">全部</button>' +
+      '</div>' +
+
+      (shown.length ? '<div class="stack gap-12">' + shown.map(card).join('') + '</div>' :
+        '<div class="card"><div class="biz-empty"><div class="illu">🛡️</div>' +
+          (filter === 'open' ? '没有待处理的售后，一切安好。' : '暂无记录。') + '</div></div>');
+  }
+
+  function card(a) {
+    var kindText = BizUtil.AFTERSALE_KIND[a.kind] || a.kind;
+    var kindPill = a.kind === 'refund' ? 'pill-danger' : (a.kind === 'redo' ? 'pill-brand' : 'pill-sky');
+    var o = a.order || {};
+    return '<div class="card card-pad">' +
+      '<div class="row between wrap" style="gap:8px">' +
+        '<div class="row gap-8">' +
+          '<span class="pill ' + kindPill + '">' + kindText + '</span>' +
+          '<span class="t-sm strong">' + a.orderId + '</span>' +
+          (a.status === 'done' ? '<span class="pill pill-mint">已处理</span>' : '<span class="pill pill-sun">待处理</span>') +
+        '</div>' +
+        '<span class="t-tiny muted">' + BizUtil.ago(a.createdAt) + '提交</span>' +
+      '</div>' +
+
+      (a.reason ? '<div class="notice mt-12" style="display:flex;gap:10px"><span>💬</span>' +
+        '<span class="t-sm">用户理由：' + BizUtil.escapeHtml(a.reason) + '</span></div>' : '') +
+
+      '<div class="t-tiny muted mt-8">共 ' + (o.n || '?') + ' 张 · 实付 ¥' +
+        BizUtil.fmtFen(o.amount || 0) + ' · ' + BizUtil.escapeHtml((o.address && o.address.name) || '-') + '</div>' +
+
+      (a.status === 'open'
+        ? '<div class="biz-ship-form mt-12" style="grid-template-columns:1fr auto">' +
+            '<input class="input" placeholder="处理说明（将展示给用户）" id="as-' + a.id + '">' +
+            '<button class="btn btn-primary" data-do="' + a.id + '">完成处理</button>' +
+          '</div>' +
+          '<div class="t-tiny muted mt-8">' + hint(a.kind) + '</div>'
+        : '<div class="biz-record mt-12"><div class="head"><b>处理记录</b>' +
+          '<span class="t-tiny muted">' + BizUtil.fmtTime(a.doneAt) + '</span></div>' +
+          BizUtil.escapeHtml(a.result || '已处理') + '</div>') +
+    '</div>';
+  }
+
+  function hint(kind) {
+    if (kind === 'refund') return '确认后：订单关闭，实付金额从余额扣回（模拟原路退回）。';
+    if (kind === 'redo') return '确认后：订单回到「制作中」，重新印刷发货。';
+    return '确认后：订单回到「制作中」，免费补寄一次。';
+  }
+
+  document.addEventListener('click', function (e) {
+    var tab = e.target.closest('.tab[data-k]');
+    if (tab) { filter = tab.dataset.k; render(null); return; }
+
+    var doBtn = e.target.closest('[data-do]');
+    if (doBtn) {
+      var id = doBtn.dataset.do;
+      var input = document.getElementById('as-' + id);
+      var result = input ? input.value.trim() : '';
+      if (!result) { BizUtil.toast('请填写处理说明', 'warn'); return; }
+      doBtn.disabled = true; doBtn.textContent = '处理中…';
+      Biz.aftersaleAction(parseInt(id, 10), result).then(function (r) {
+        if (r && r.ok) BizUtil.toast('售后已处理', 'ok');
+        else { BizUtil.toast((r && r.msg) || '处理失败', 'err'); doBtn.disabled = false; doBtn.textContent = '完成处理'; }
+      });
+    }
+  });
+
+  Biz.subscribe(render);
+})();
+</script>
+</body>
+</html>

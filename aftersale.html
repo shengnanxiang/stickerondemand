@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>申请售后 · SOD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .addr-card {
+    display: block; width: 100%; text-align: left; padding: 14px 16px; border-radius: var(--r-md);
+    border: 1.5px solid var(--line-strong); background: #fff; transition: border-color .16s var(--ease), background .16s var(--ease);
+  }
+  .addr-card.is-active { border-color: var(--brand); background: var(--brand-soft); }
+</style>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="container-narrow page" id="page"></main>
+
+<div class="toast-wrap"></div>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/pricing.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="demo/vendor/supabase.min.js"></script>
+<script src="demo/config.js"></script>
+<script src="assets/js/cloud.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = UI.qs;
+  if (!UI.guard()) return;
+  UI.mountNav('orders');
+
+  var order = Store.orders.get(UI.param('id'));
+  if ((!order) && Cloud.ok()) order = Cloud.get(UI.param('id'));
+  if (!order) { location.href = 'orders.html'; return; }
+
+  if (['shipped', 'done'].indexOf(order.status) < 0) {
+    $('#page').innerHTML =
+      '<div class="card card-pad"><div style="padding:40px 20px;text-align:center">' +
+        '<div style="font-size:34px;opacity:.45">🛡️</div>' +
+        '<p class="t-sm muted" style="margin-top:10px">订单发货后才支持售后。</p>' +
+        '<a class="btn btn-outline btn-sm" style="margin-top:14px" href="order-detail.html?id=' + order.id + '">返回订单详情</a>' +
+      '</div></div>';
+    return;
+  }
+
+  var kinds = [
+    { k: 'redo',   t: '重新制作', d: '印刷瑕疵 / 色差等问题，免费重做一份' },
+    { k: 'reship', t: '补寄',     d: '包裹丢失 / 破损，免费补寄一次' },
+    { k: 'refund', t: '仅退款',   d: '与商家协商一致后原路退回' }
+  ];
+  var kind = 'redo';
+  var reason = '';
+
+  function render() {
+    $('#page').innerHTML =
+      '<div class="row gap-12 mb-16">' +
+        '<a class="btn btn-ghost btn-sm" href="order-detail.html?id=' + order.id + '"><span class="ico" id="i-b"></span>订单详情</a>' +
+      '</div>' +
+
+      '<div class="card card-pad">' +
+        '<div class="t-h3">选择售后类型</div>' +
+        '<div class="stack gap-10 mt-12">' +
+          kinds.map(function (x) {
+            return '<button class="addr-card' + (kind === x.k ? ' is-active' : '') + '" data-k="' + x.k + '" style="width:100%;text-align:left">' +
+              '<div class="row between"><span class="t-sm strong">' + x.t + '</span>' +
+              '<span class="t-tiny muted">' + (kind === x.k ? '已选择' : '') + '</span></div>' +
+              '<div class="t-tiny muted mt-4">' + x.d + '</div>' +
+            '</button>';
+          }).join('') +
+        '</div>' +
+        '<div class="divider mt-16"></div>' +
+        '<div class="t-h3 mt-16">问题描述</div>' +
+        '<textarea class="input mt-8" id="f-reason" rows="4" maxlength="200" placeholder="简单描述问题（选填，会展示给供应商）">' +
+          UI.escapeHtml(reason) + '</textarea>' +
+        '<div class="t-tiny muted mt-8">提交后订单转为「售后中」，供应商处理完成后可在订单详情查看结果。</div>' +
+        '<button class="btn btn-primary btn-block mt-16" id="btn-go">提交售后申请</button>' +
+      '</div>' +
+
+      '<div class="card card-pad mt-16">' +
+        '<span class="t-h3">订单信息</span>' +
+        '<div class="od-item" style="display:flex;gap:14px;padding:12px 0;align-items:center">' +
+          '<div class="thumb-sm"><img src="' + (order.items[0] ? order.items[0].thumb : '') + '" alt=""></div>' +
+          '<div class="grow"><div class="t-sm strong">' + UI.escapeHtml(order.items[0] ? order.items[0].name : '') + '</div>' +
+          '<div class="t-tiny muted">' + order.n + ' 张 · 实付 ' + Pricing.fmtYuan(order.amount) + '</div></div>' +
+        '</div>' +
+      '</div>';
+
+    var ib = $('#i-b'); if (ib) ib.innerHTML = UI.icon('chevronL');
+
+    UI.qsa('[data-k]').forEach(function (b) {
+      b.addEventListener('click', function () { kind = b.dataset.k; render(); });
+    });
+    var ta = $('#f-reason');
+    if (ta) ta.addEventListener('input', function () { reason = ta.value; });
+
+    $('#btn-go').addEventListener('click', function () {
+      var btn = $('#btn-go');
+      btn.disabled = true; btn.textContent = '提交中…';
+      Cloud.openAftersale(order.id, kind, reason).then(function (r) {
+        if (r && r.ok) {
+          UI.toast('售后申请已提交', 'ok');
+          setTimeout(function () { location.href = 'order-detail.html?id=' + order.id; }, 600);
+        } else {
+          btn.disabled = false; btn.textContent = '提交售后申请';
+          UI.toast((r && r.msg) || '提交失败', 'err');
+        }
+      }).catch(function (e) {
+        btn.disabled = false; btn.textContent = '提交售后申请';
+        UI.toast('云端连接失败：' + (e.message || e), 'err');
+      });
+    });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

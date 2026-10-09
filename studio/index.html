@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>工作台 · SOD 供应端</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../assets/css/app.css">
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
+<div class="biz-app" id="app"></div>
+<div class="toast-wrap"></div>
+
+<script src="../demo/vendor/supabase.min.js"></script>
+<script src="../demo/config.js"></script>
+<script src="biz-sdk.js"></script>
+<script src="studio-nav.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = BizUtil.qs;
+  var session = Biz.requireSession();
+  if (!session) return;
+
+  var app = $('#app');
+  var lastBadge = -1;
+
+  function render(state) {
+    /* 导航角标：待处理售后数（首挂载 + 数量变化时才重挂，避免闪烁） */
+    var aftersaleOpen = Biz.myAftersales(session.id).filter(function (a) { return a.status === 'open'; }).length;
+    if (aftersaleOpen !== lastBadge) {
+      StudioNav.mount('home', aftersaleOpen);
+      lastBadge = aftersaleOpen;
+    }
+
+    var supplier = Biz.getSupplier(session.id);
+    if (!supplier) {
+      app.querySelector('.biz-main').innerHTML =
+        '<div class="biz-empty"><div class="illu">📡</div>云端还没有店铺数据，请先执行 supabase/biz-schema.sql</div>';
+      return;
+    }
+
+    var all = Biz.myOrders(session.id);
+    var queue = all.filter(function (o) {
+      return ['paid', 'accepted', 'making'].indexOf(o.status) >= 0;
+    }).sort(function (a, b) {
+      // 待接单（paid）排最前，按支付时间先后逐单处理
+      var ra = o.status === 'paid' ? 0 : 1, rb = b.status === 'paid' ? 0 : 1;
+      if (ra !== rb) return ra - rb;
+      return (a.paidAt || a.createdAt) - (b.paidAt || b.createdAt);
+    });
+
+    var today0 = new Date(); today0.setHours(0, 0, 0, 0);
+    var todayOrders = all.filter(function (o) { return o.createdAt >= today0.getTime(); });
+    var todayDone = all.filter(function (o) { return o.doneAt && o.doneAt >= today0.getTime(); });
+    var todayIncome = todayDone.reduce(function (s, o) { return s + o.amount; }, 0);
+    var aftersaleOpen = Biz.myAftersales(session.id).filter(function (a) { return a.status === 'open'; }).length;
+    var pendingPay = all.filter(function (o) { return o.status === 'pending'; }).length;
+
+    var main = app.querySelector('.biz-main');
+    main.innerHTML =
+      '<div class="biz-page-title">' +
+        '<h1>工作台</h1>' +
+        '<span class="biz-live"><span class="dot"></span>实时同步中</span>' +
+        '<span class="grow"></span>' +
+        '<a class="btn btn-outline btn-sm" href="aftersales.html">售后处理' +
+          (aftersaleOpen ? ' <span class="biz-nav-badge">' + aftersaleOpen + '</span>' : '') + '</a>' +
+      '</div>' +
+
+      /* 今日统计 */
+      '<div class="biz-stats">' +
+        '<div class="biz-stat is-danger"><span class="label">📋 待处理</span>' +
+          '<div class="num">' + queue.length + '<small>单</small></div></div>' +
+        '<div class="biz-stat is-brand"><span class="label">🧾 今日新订单</span>' +
+          '<div class="num">' + todayOrders.length + '<small>单</small></div></div>' +
+        '<div class="biz-stat is-mint"><span class="label">✅ 今日完成</span>' +
+          '<div class="num">' + todayDone.length + '<small>单</small></div></div>' +
+        '<div class="biz-stat is-sky"><span class="label">💰 今日收入</span>' +
+          '<div class="num">¥' + BizUtil.fmtFen(todayIncome) + '</div></div>' +
+      '</div>' +
+
+      /* 待处理队列 */
+      '<div class="biz-queue-card">' +
+        '<div class="biz-queue-head">' +
+          '<span class="t">待处理队列</span>' +
+          '<span class="t-tiny muted">按支付时间先后，逐单处理</span>' +
+          '<span class="grow"></span>' +
+          '<span class="t-tiny muted">' + pendingPay + ' 单待支付（付款后自动入列）</span>' +
+        '</div>' +
+        (queue.length ? queue.map(queueRow).join('') :
+          '<div class="biz-empty"><div class="illu">🎉</div>太棒了，队列已清空。<br>用户下单后会实时出现在这里。</div>') +
+      '</div>' +
+
+      /* 耗材 + 营业信息 */
+      '<div class="biz-detail-grid mt-20">' +
+        '<div class="card card-pad">' +
+          '<div class="t-h3 mb-12">耗材余量</div>' +
+          stockRow('云母纸', supplier.stockMica, supplier.dailyCap) +
+          stockRow('亚银纸', supplier.stockSilver, supplier.dailyCap) +
+          '<div class="t-tiny muted mt-12">低于接单上限的 20% 会标红提醒，去「店铺设置」补货。</div>' +
+        '</div>' +
+        '<div class="card card-pad">' +
+          '<div class="t-h3 mb-12">营业信息</div>' +
+          '<div class="biz-record-list">' +
+            '<div class="biz-record"><div class="head"><b>自提地址</b></div>' +
+              BizUtil.escapeHtml(supplier.address || '未设置') + '</div>' +
+            '<div class="biz-record"><div class="head"><b>营业时间</b></div>' +
+              BizUtil.escapeHtml(supplier.openHours || '未设置') + '</div>' +
+            '<div class="biz-record"><div class="head"><b>接单上限</b></div>每日 ' +
+              supplier.dailyCap + ' 单（当前已接 ' + all.length + '）</div>' +
+            '<div class="biz-record"><div class="head"><b>服务地区</b></div>' +
+              BizUtil.escapeHtml((supplier.regionCodes || []).join('、') || '全部地区（兜底）') + '</div>' +
+          '</div>' +
+          '<a class="btn btn-outline btn-sm btn-block mt-12" href="settings.html">去设置</a>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function queueRow(o) {
+    var items = o.items || [];
+    var first = items[0] || {};
+    var isPaid = o.status === 'paid';
+    return '<div class="biz-row" data-id="' + o.id + '">' +
+      '<div class="thumb-sm"><img src="' + (first.thumb || '') + '" alt=""></div>' +
+      '<div class="minw0">' +
+        '<div class="biz-order-id">' + o.id + ' · ' + BizUtil.ago(o.paidAt || o.createdAt) + '</div>' +
+        '<div class="biz-order-main">' + BizUtil.escapeHtml(first.name || '贴纸') +
+          (items.length > 1 ? ' 等 ' + items.length + ' 件' : '') + '</div>' +
+        '<div class="biz-order-sub">' + BizUtil.escapeHtml((o.address && o.address.region) || '') + ' · 共 ' + o.n + ' 张</div>' +
+      '</div>' +
+      '<div class="hide-sm">' + BizUtil.statusPill(o.status) + '</div>' +
+      '<div class="biz-amount hide-sm">¥' + BizUtil.fmtFen(o.amount) + '</div>' +
+      '<div class="right">' +
+        (isPaid ? '<button class="btn btn-primary btn-sm" data-accept="' + o.id + '">接单</button>' :
+          '<a class="btn btn-outline btn-sm" href="order-detail.html?id=' + o.id + '">去处理</a>') +
+      '</div>' +
+    '</div>';
+  }
+
+  function stockRow(name, val, cap) {
+    var pct = Math.min(100, Math.round(val / Math.max(1, cap) * 100));
+    var cls = val <= 0 ? ' is-danger' : (val < cap * 0.2 ? ' is-warn' : '');
+    return '<div class="biz-setting-row" style="border:0;padding:10px 0">' +
+      '<span class="k">' + name + '</span>' +
+      '<div class="biz-stock">' +
+        '<div class="biz-stock-bar"><i class="' + cls.trim() + '" style="width:' + Math.max(3, pct) + '%"></i></div>' +
+        '<span class="val' + (val < cap * 0.2 ? '" style="color:var(--danger)' : '') + '">' + val + ' 张</span>' +
+      '</div></div>';
+  }
+
+  /* 队列点击：接单按钮直接接单，其余进详情 */
+  app.addEventListener('click', function (e) {
+    var acc = e.target.closest('[data-accept]');
+    if (acc) {
+      e.stopPropagation();
+      acc.disabled = true; acc.textContent = '接单中…';
+      Biz.acceptOrder(acc.dataset.accept).then(function (r) {
+        if (r && r.ok) BizUtil.toast('已接单，进入制作队列', 'ok');
+        else BizUtil.toast((r && r.msg) || '接单失败', 'err');
+      });
+      return;
+    }
+    var row = e.target.closest('.biz-row');
+    if (row) location.href = 'order-detail.html?id=' + row.dataset.id;
+  });
+
+  Biz.subscribe(render);
+})();
+</script>
+</body>
+</html>

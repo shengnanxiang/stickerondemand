@@ -20,6 +20,9 @@
 <script src="assets/js/store.js"></script>
 <script src="assets/js/pricing.js"></script>
 <script src="assets/js/ui.js"></script>
+<script src="demo/vendor/supabase.min.js"></script>
+<script src="demo/config.js"></script>
+<script src="assets/js/cloud.js"></script>
 <script>
 (function () {
   'use strict';
@@ -27,17 +30,25 @@
   if (!UI.guard()) return;
   UI.mountNav('orders');
 
-  var order = Store.orders.get(UI.param('id'));
-  if (!order) { location.href = 'orders.html'; return; }
+  var orderId = UI.param('id');
+  var order = null;
 
   var FLOW = [
-    { k: 'pending', t: '待支付', d: '提交订单，等待付款' },
-    { k: 'making',  t: '制作中', d: '已付款，厂商开始印刷模切' },
-    { k: 'shipped', t: '已发货', d: '快递已揽收' },
-    { k: 'done',    t: '已完成', d: '已签收' }
+    { k: 'pending',  t: '待支付', d: '提交订单，等待付款', f: 'createdAt' },
+    { k: 'paid',     t: '已支付', d: '等待供应商接单',     f: 'paidAt' },
+    { k: 'accepted', t: '已接单', d: '供应商确认排产',     f: 'acceptedAt' },
+    { k: 'making',   t: '制作中', d: '印刷模切进行中',     f: 'madeAt' },
+    { k: 'shipped',  t: '已发货', d: '快递已揽收',         f: 'shippedAt' },
+    { k: 'done',     t: '已完成', d: '已签收',             f: 'doneAt' }
   ];
-  var flowIdx = { pending: 0, making: 1, shipped: 2, done: 3 };
-  var cur = flowIdx[order.status];
+  var flowIdx = { pending: 0, paid: 1, accepted: 2, making: 3, shipped: 4, done: 5, aftersale: 5 };
+
+  function loadOrder() {
+    order = Store.orders.get(orderId);
+    if (!order && Cloud.ok()) order = Cloud.get(orderId);
+    return !!order;
+  }
+  if (!loadOrder()) { location.href = 'orders.html'; return; }
 
   function timeline() {
     if (order.status === 'closed') {
@@ -45,18 +56,18 @@
         '<span class="notice-icon">' + UI.icon('alert') + '</span>' +
         '<span><b>订单已关闭</b><br>超过支付时限未完成付款，可以重新下单。</span></div>';
     }
+    var cur = flowIdx[order.status];
     return '<div class="timeline">' + FLOW.map(function (s, i) {
       var cls = i < cur ? ' is-done' : (i === cur ? ' is-current' : '');
       var time = '';
-      if (i === 0) time = Store.util.fmtTime(order.createdAt);
-      if (i === 1 && order.paidAt) time = Store.util.fmtTime(order.paidAt);
-      if (i === 2 && order.logistics && order.logistics.tracks.length) {
-        time = Store.util.fmtTime(order.logistics.tracks[order.logistics.tracks.length - 1].t);
-      }
+      if (order[s.f]) time = Store.util.fmtTime(order[s.f]);
       return '<div class="tl-item' + cls + '"><div class="tl-node"></div>' +
         '<div class="col"><span class="t-sm strong">' + s.t + '</span>' +
         '<span class="t-tiny muted">' + s.d + (time ? ' · ' + time : '') + '</span></div></div>';
-    }).join('') + '</div>';
+    }).join('') + '</div>' +
+    (order.status === 'aftersale' ? '<div class="notice notice-danger mt-12" style="display:flex;gap:10px">' +
+      '<span class="notice-icon">' + UI.icon('alert') + '</span>' +
+      '<span><b>售后处理中</b><br>供应商正在跟进你的售后申请，处理结果会显示在订单状态里。</span></div>' : '');
   }
 
   function actions() {
@@ -65,10 +76,17 @@
         '<button class="btn btn-ghost btn-block mt-8" data-cancel>取消订单</button>';
     }
     if (order.status === 'shipped') {
-      return '<a class="btn btn-primary btn-block" href="logistics.html?id=' + order.id + '">查看物流</a>';
+      return '<a class="btn btn-primary btn-block" href="logistics.html?id=' + order.id + '">查看物流</a>' +
+        '<button class="btn btn-ghost btn-block mt-8" data-aftersale>申请售后</button>';
     }
     if (order.status === 'done') {
-      return '<button class="btn btn-primary btn-block" data-again>再来一单</button>';
+      return '<button class="btn btn-primary btn-block" data-again>再来一单</button>' +
+        '<button class="btn btn-ghost btn-block mt-8" data-aftersale>申请售后</button>';
+    }
+    if (order.status === 'aftersale') {
+      return '<div class="notice notice-sun" style="display:flex;gap:10px">' +
+        '<span class="notice-icon">' + UI.icon('info') + '</span>' +
+        '<span>售后处理中，供应商会尽快给出结果。</span></div>';
     }
     if (order.status === 'closed') {
       return '<button class="btn btn-primary btn-block" data-again>重新下单</button>';
@@ -78,93 +96,109 @@
       '<span>正在排产，完成后会发货。</span></div>';
   }
 
-  $('#page').innerHTML =
-    '<div class="row gap-12 mb-16">' +
-      '<a class="btn btn-ghost btn-sm" href="orders.html"><span class="ico" id="i-b"></span>我的订单</a>' +
-    '</div>' +
-
-    '<div class="card card-pad">' +
-      '<div class="row between">' +
-        '<div><div class="t-h2">' + UI.escapeHtml(Store.STATUS_TEXT[order.status]) + '</div>' +
-        '<div class="t-tiny muted mt-4">' + order.id + ' · ' + Store.util.fmtTime(order.createdAt) + '</div></div>' +
-        UI.statusPill(order.status) +
+  function render() {
+    if (!loadOrder()) { location.href = 'orders.html'; return; }
+    $('#page').innerHTML =
+      '<div class="row gap-12 mb-16">' +
+        '<a class="btn btn-ghost btn-sm" href="orders.html"><span class="ico" id="i-b"></span>我的订单</a>' +
+        '<span class="pill pill-mint" id="live-pill" hidden><span class="dot"></span>&nbsp;实时同步中</span>' +
       '</div>' +
-      '<div class="divider"></div>' +
-      timeline() +
-    '</div>' +
 
-    (order.logistics ? '<div class="card card-pad mt-16">' +
-      '<div class="row between"><span class="t-h3">物流信息</span>' +
-      '<a class="btn btn-ghost btn-xs" href="logistics.html?id=' + order.id + '">详情</a></div>' +
-      '<div class="notice notice-sky mt-12" style="display:flex;gap:10px;background:var(--sky-soft);border-color:#C9DFF1;color:#2F6E9F">' +
-        '<span class="notice-icon">' + UI.icon('truck') + '</span>' +
-        '<span><b>' + order.logistics.company + '</b> ' + order.logistics.no + '<br>' +
-        UI.escapeHtml(order.logistics.tracks[0].d) + '</span></div>' +
-    '</div>' : '') +
-
-    '<div class="card card-pad mt-16">' +
-      '<span class="t-h3">收货信息</span>' +
-      '<div class="mt-8">' +
-        '<div class="t-sm strong">' + UI.escapeHtml(order.address.name) + ' ' +
-          '<span class="muted">' + UI.escapeHtml(order.address.phone) + '</span></div>' +
-        '<div class="t-sm muted mt-4">' + UI.escapeHtml(order.address.region + ' ' + order.address.detail) + '</div>' +
+      '<div class="card card-pad">' +
+        '<div class="row between">' +
+          '<div><div class="t-h2">' + UI.escapeHtml(Store.STATUS_TEXT[order.status] || order.status) + '</div>' +
+          '<div class="t-tiny muted mt-4">' + order.id + ' · ' + Store.util.fmtTime(order.createdAt) + '</div></div>' +
+          UI.statusPill(order.status) +
+        '</div>' +
+        '<div class="divider"></div>' +
+        timeline() +
       '</div>' +
-    '</div>' +
 
-    '<div class="card card-pad mt-16">' +
-      '<span class="t-h3">作品清单</span>' +
-      order.items.map(function (it) {
-        return '<div class="od-item">' +
-          '<div class="thumb-sm"><img src="' + it.thumb + '" alt=""></div>' +
-          '<div class="grow"><div class="t-sm strong">' + UI.escapeHtml(it.name) + '</div>' +
-          '<div class="t-tiny muted">' + it.copies + ' 份</div></div>' +
-        '</div>';
-      }).join('') +
-      (order.note ? '<div class="notice mt-12" style="display:flex;gap:10px">' +
-        '<span class="notice-icon">' + UI.icon('edit') + '</span>' +
-        '<span>备注：' + UI.escapeHtml(order.note) + '</span></div>' : '') +
-    '</div>' +
+      (order.logistics ? '<div class="card card-pad mt-16">' +
+        '<div class="row between"><span class="t-h3">物流信息</span>' +
+        '<a class="btn btn-ghost btn-xs" href="logistics.html?id=' + order.id + '">详情</a></div>' +
+        '<div class="notice notice-sky mt-12" style="display:flex;gap:10px;background:var(--sky-soft);border-color:#C9DFF1;color:#2F6E9F">' +
+          '<span class="notice-icon">' + UI.icon('truck') + '</span>' +
+          '<span><b>' + order.logistics.company + '</b> ' + order.logistics.no + '<br>' +
+          UI.escapeHtml(order.logistics.tracks[0].d) + '</span></div>' +
+      '</div>' : '') +
 
-    '<div class="card card-pad mt-16">' +
-      '<span class="t-h3">结算明细</span>' +
-      '<div class="mt-12">' +
-        '<div class="price-row"><span class="k">商品小计（共 ' + order.n + ' 张）</span>' +
-        '<span class="v">' + Pricing.fmtYuan(order.subtotal || Pricing.quote(order.n).subtotal) + '</span></div>' +
-        '<div class="price-row mt-8"><span class="k">运费</span>' +
-        '<span class="v">' + ((order.shipping || 0) === 0 ? '包邮' : Pricing.fmtYuan(order.shipping)) + '</span></div>' +
-        (order.couponDiscount ? '<div class="price-row mt-8 is-discount">' +
-          '<span class="k">' + (order.couponType === 'freeship' ? '免运费券' : '通用券') + '</span>' +
-          '<span class="v">' + Pricing.fmtSigned(-order.couponDiscount) + '</span></div>' : '') +
-        '<div class="price-total mt-12">' +
-          '<span class="k">实付</span>' +
-          '<span class="v"><span class="cur">¥</span>' + Pricing.fmt(order.amount) + '</span></div>' +
+      '<div class="card card-pad mt-16">' +
+        '<span class="t-h3">收货信息</span>' +
+        '<div class="mt-8">' +
+          '<div class="t-sm strong">' + UI.escapeHtml(order.address.name) + ' ' +
+            '<span class="muted">' + UI.escapeHtml(order.address.phone) + '</span></div>' +
+          '<div class="t-sm muted mt-4">' + UI.escapeHtml(order.address.region + ' ' + order.address.detail) + '</div>' +
+        '</div>' +
       '</div>' +
-    '</div>' +
 
-    '<div class="od-actions">' + actions() + '</div>';
+      '<div class="card card-pad mt-16">' +
+        '<span class="t-h3">作品清单</span>' +
+        order.items.map(function (it) {
+          return '<div class="od-item">' +
+            '<div class="thumb-sm"><img src="' + it.thumb + '" alt=""></div>' +
+            '<div class="grow"><div class="t-sm strong">' + UI.escapeHtml(it.name) + '</div>' +
+            '<div class="t-tiny muted">' + it.copies + ' 份</div></div>' +
+          '</div>';
+        }).join('') +
+        (order.note ? '<div class="notice mt-12" style="display:flex;gap:10px">' +
+          '<span class="notice-icon">' + UI.icon('edit') + '</span>' +
+          '<span>备注：' + UI.escapeHtml(order.note) + '</span></div>' : '') +
+      '</div>' +
 
-  $('#i-b').innerHTML = UI.icon('chevronL');
+      '<div class="card card-pad mt-16">' +
+        '<span class="t-h3">结算明细</span>' +
+        '<div class="mt-12">' +
+          '<div class="price-row"><span class="k">商品小计（共 ' + order.n + ' 张）</span>' +
+          '<span class="v">' + Pricing.fmtYuan(order.subtotal || Pricing.quote(order.n).subtotal) + '</span></div>' +
+          '<div class="price-row mt-8"><span class="k">运费</span>' +
+          '<span class="v">' + ((order.shipping || 0) === 0 ? '包邮' : Pricing.fmtYuan(order.shipping)) + '</span></div>' +
+          (order.couponDiscount ? '<div class="price-row mt-8 is-discount">' +
+            '<span class="k">' + (order.couponType === 'freeship' ? '免运费券' : '通用券') + '</span>' +
+            '<span class="v">' + Pricing.fmtSigned(-order.couponDiscount) + '</span></div>' : '') +
+          '<div class="price-total mt-12">' +
+            '<span class="k">实付</span>' +
+            '<span class="v"><span class="cur">¥</span>' + Pricing.fmt(order.amount) + '</span></div>' +
+        '</div>' +
+      '</div>' +
 
-  var ce = $('[data-cancel]');
-  if (ce) ce.addEventListener('click', function () {
-    Store.orders.setStatus(order.id, 'closed');
-    UI.toast('订单已关闭');
-    setTimeout(function () { location.reload(); }, 500);
-  });
-  var ag = $('[data-again]');
-  if (ag) ag.addEventListener('click', function () {
-    var w = null;
-    Store.works.history().forEach(function (x) { if (x.name === order.items[0].name) w = x; });
-    if (!w) {
-      w = { id: Store.util.uid('w'), name: order.items[0].name, kind: 'draft',
-             thumb: order.items[0].thumb, objects: [], updatedAt: Date.now() };
-      Store.works.upsert(w);
-    }
-    Store.bag.add(w.id, 1);
-    UI.refreshBagBadge();
-    UI.toast('已加入结算袋', 'ok');
-    setTimeout(function () { location.href = 'bag.html'; }, 600);
-  });
+      '<div class="od-actions">' + actions() + '</div>';
+
+    var ib = $('#i-b'); if (ib) ib.innerHTML = UI.icon('chevronL');
+
+    var ce = $('[data-cancel]');
+    if (ce) ce.addEventListener('click', function () {
+      Store.orders.cancelCloud(order.id).then(function (r) {
+        if (r && r.ok) {
+          UI.toast('订单已关闭');
+          setTimeout(function () { render(); }, 400);
+        } else UI.toast((r && r.msg) || '取消失败', 'err');
+      });
+    });
+    var af = $('[data-aftersale]');
+    if (af) af.addEventListener('click', function () { location.href = 'aftersale.html?id=' + order.id; });
+    var ag = $('[data-again]');
+    if (ag) ag.addEventListener('click', function () {
+      var w = null;
+      Store.works.history().forEach(function (x) { if (x.name === order.items[0].name) w = x; });
+      if (!w) {
+        w = { id: Store.util.uid('w'), name: order.items[0].name, kind: 'draft',
+               thumb: order.items[0].thumb, objects: [], updatedAt: Date.now() };
+        Store.works.upsert(w);
+      }
+      Store.bag.add(w.id, 1);
+      UI.refreshBagBadge();
+      UI.toast('已加入结算袋', 'ok');
+      setTimeout(function () { location.href = 'bag.html'; }, 600);
+    });
+  }
+
+  render();
+  /* 云端实时刷新（供应商接单/制作/发货后自动更新） */
+  if (Cloud.ok()) {
+    $('#live-pill').hidden = false;
+    Cloud.subscribe(function () { render(); });
+  }
 })();
 </script>
 </body>

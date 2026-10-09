@@ -100,6 +100,9 @@
 <script src="assets/js/store.js"></script>
 <script src="assets/js/pricing.js"></script>
 <script src="assets/js/ui.js"></script>
+<script src="demo/vendor/supabase.min.js"></script>
+<script src="demo/config.js"></script>
+<script src="assets/js/cloud.js"></script>
 <script>
 (function () {
   'use strict';
@@ -225,27 +228,66 @@
   }
 
   /* ---- 提交 ---- */
+  var submitting = false;
   $('#btn-submit').addEventListener('click', function () {
+    if (submitting) return;
     if (!selAddrId) { UI.toast('请先选择收货地址', 'warn'); return; }
     var cp = currentCoupon();
     var q = Pricing.quote(n, cp);
     var addr = Store.addresses.get(selAddrId);
 
-    var order = Store.orders.create({
+    var payload = {
       items: bag.map(function (b) { return { name: b.name, thumb: b.thumb, copies: b.copies }; }),
       n: n, amount: q.total, subtotal: q.subtotal, shipping: q.shippingOriginal,
       couponType: cp ? cp.type : null, couponDiscount: q.discount,
       address: Store.util.clone(addr), note: $('#note').value.trim()
-    });
+    };
+
+    /* 云端可用：单 RPC 建单（服务端权威计价 + 发号 + 按地址派单给供应商） */
+    if (Cloud.ok()) {
+      submitting = true;
+      var btn = $('#btn-submit');
+      btn.disabled = true; btn.textContent = '提交中…';
+
+      var user = Store.auth.user() || {};
+      Cloud.checkout({
+        userId: user.nickname || user.phone || '微信用户',
+        items: payload.items,
+        address: payload.address,
+        couponType: payload.couponType,
+        note: payload.note,
+        amountExpect: q.total
+      }).then(function (r) {
+        if (r && r.ok) {
+          afterSubmit(cp, { id: r.id, amount: r.amount / 100 });
+        } else {
+          submitting = false;
+          btn.disabled = false; btn.textContent = '提交订单';
+          UI.toast((r && r.msg) || '下单失败，请重试', 'err');
+        }
+      }).catch(function (e) {
+        submitting = false;
+        btn.disabled = false; btn.textContent = '提交订单';
+        UI.toast('云端连接失败：' + (e.message || e), 'err');
+      });
+      return;
+    }
+
+    /* 云端未配置：本地降级（保留旧行为） */
+    var order = Store.orders.create(payload);
+    afterSubmit(cp, order);
+  });
+
+  /* 下单成功后的统一收尾：核销本地券 → 作品转历史 → 清袋 → 去支付 */
+  function afterSubmit(cp, order) {
     if (cp) Store.coupons.consume(cp.id);
-    // 结算过的作品转入历史
     bag.forEach(function (b) {
       var w = Store.works.get(b.workId);
       if (w) { w.kind = 'history'; Store.works.upsert(w); }
     });
     Store.bag.clear();
     location.href = 'payment.html?id=' + order.id;
-  });
+  }
 
   renderAddr(); renderItems(); renderCoupons(); renderSummary();
 })();

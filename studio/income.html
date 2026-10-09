@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>收入统计 · SOD 供应端</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../assets/css/app.css">
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
+<div class="biz-app" id="app"></div>
+<div class="toast-wrap"></div>
+
+<script src="../demo/vendor/supabase.min.js"></script>
+<script src="../demo/config.js"></script>
+<script src="biz-sdk.js"></script>
+<script src="studio-nav.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = BizUtil.qs;
+  var session = Biz.requireSession();
+  if (!session) return;
+
+  StudioNav.mount('income', 0);
+
+  var RANGE = { today: 0, d7: 7, d30: 30, all: Infinity };
+  var rangeKey = BizUtil.param('range') || 'today';
+  if (!(rangeKey in RANGE)) rangeKey = 'today';
+
+  function rangeStart() {
+    if (rangeKey === 'all') return 0;
+    var d = new Date(); d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - RANGE[rangeKey]);
+    return d.getTime();
+  }
+
+  var RANGE_TEXT = { today: '今日', d7: '近 7 日', d30: '近 30 日', all: '全部' };
+
+  function render(state) {
+    var supplier = Biz.getSupplier(session.id);
+    if (!supplier) {
+      $('#app .biz-main').innerHTML = '<div class="biz-empty">云端还没有店铺数据</div>';
+      return;
+    }
+
+    var start = rangeStart();
+    var doneList = Biz.myOrders(session.id, ['done'])
+      .filter(function (o) { return o.doneAt && o.doneAt >= start; })
+      .sort(function (a, b) { return b.doneAt - a.doneAt; });
+
+    var income = doneList.reduce(function (s, o) { return s + o.amount; }, 0);
+    var wds = Biz.myWithdrawals(session.id);
+    var withdrawn = wds.reduce(function (s, w) { return s + w.amount; }, 0);
+
+    $('#app .biz-main').innerHTML =
+      '<div class="biz-page-title">' +
+        '<h1>收入统计</h1>' +
+        '<span class="biz-live"><span class="dot"></span>实时同步中</span>' +
+      '</div>' +
+
+      /* 时间筛选 */
+      '<div class="tabs wrap mb-16">' +
+        Object.keys(RANGE).map(function (k) {
+          return '<a class="tab' + (k === rangeKey ? ' is-active' : '') + '" href="income.html?range=' + k + '">' +
+            RANGE_TEXT[k] + '</a>';
+        }).join('') +
+      '</div>' +
+
+      /* 汇总卡 */
+      '<div class="biz-stats">' +
+        '<div class="biz-stat is-sky"><span class="label">💰 ' + RANGE_TEXT[rangeKey] + '收入</span>' +
+          '<div class="num">¥' + BizUtil.fmtFen(income) + '</div></div>' +
+        '<div class="biz-stat is-mint"><span class="label">📦 完成订单</span>' +
+          '<div class="num">' + doneList.length + '<small>单</small></div></div>' +
+        '<div class="biz-stat is-brand"><span class="label">🧾 可提现余额</span>' +
+          '<div class="num">¥' + BizUtil.fmtFen(supplier.balance) + '</div></div>' +
+        '<div class="biz-stat"><span class="label">📤 累计已提现</span>' +
+          '<div class="num">¥' + BizUtil.fmtFen(withdrawn) + '</div></div>' +
+      '</div>' +
+
+      /* 提现 */
+      '<div class="card card-pad mb-16" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">' +
+        '<div class="grow">' +
+          '<div class="t-sm strong">提现到银行卡</div>' +
+          '<div class="t-tiny muted mt-4">原型演示：点击即模拟提现成功，余额清零入提现记录。</div>' +
+        '</div>' +
+        '<button class="btn btn-primary" id="btn-wd" ' + (supplier.balance <= 0 ? 'disabled' : '') + '>' +
+          '提现 ¥' + BizUtil.fmtFen(supplier.balance) + '</button>' +
+      '</div>' +
+
+      /* 每单明细 */
+      '<div class="biz-queue-card">' +
+        '<div class="biz-queue-head"><span class="t">每单净收入明细</span>' +
+          '<span class="t-tiny muted">' + RANGE_TEXT[rangeKey] + ' · ' + doneList.length + ' 单</span></div>' +
+        (doneList.length ?
+          '<div class="biz-table-wrap" style="border:0;border-radius:0">' +
+          '<table class="biz-table"><thead><tr>' +
+            '<th>订单号</th><th>完成时间</th><th>张数</th><th>实收</th><th>状态</th>' +
+          '</tr></thead><tbody>' +
+          doneList.map(function (o) {
+            return '<tr class="row-click" data-id="' + o.id + '">' +
+              '<td class="num">' + o.id + '</td>' +
+              '<td class="t-sm muted">' + BizUtil.fmtTime(o.doneAt) + '</td>' +
+              '<td class="num">' + o.n + '</td>' +
+              '<td class="num" style="color:var(--brand-deep)">¥' + BizUtil.fmtFen(o.amount) + '</td>' +
+              '<td>' + BizUtil.statusPill(o.status) + '</td>' +
+            '</tr>';
+          }).join('') +
+          '</tbody></table></div>'
+          : '<div class="biz-empty"><div class="illu">🧾</div>' + RANGE_TEXT[rangeKey] + '还没有完成的订单。</div>') +
+      '</div>' +
+
+      /* 提现记录 */
+      (wds.length ? '<div class="biz-queue-card mt-16">' +
+        '<div class="biz-queue-head"><span class="t">提现记录</span></div>' +
+        wds.map(function (w) {
+          return '<div class="biz-row" style="cursor:default;grid-template-columns:minmax(0,1fr) 130px">' +
+            '<div><div class="biz-order-main">提现</div>' +
+            '<div class="biz-order-sub">' + BizUtil.fmtTime(w.createdAt) + '</div></div>' +
+            '<div class="biz-amount">-¥' + BizUtil.fmtFen(w.amount) + '</div></div>';
+        }).join('') + '</div>' : '');
+  }
+
+  /* 提现 */
+  $('#app').addEventListener('click', function (e) {
+    var wd = e.target.closest('#btn-wd');
+    if (wd) {
+      wd.disabled = true; wd.textContent = '提现中…';
+      Biz.withdraw(session.id, null).then(function (r) {
+        if (r && r.ok) BizUtil.toast('提现成功 ¥' + BizUtil.fmtFen(r.amount), 'ok');
+        else { BizUtil.toast((r && r.msg) || '提现失败', 'err'); wd.disabled = false; }
+      });
+      return;
+    }
+    var row = e.target.closest('tr.row-click');
+    if (row) location.href = 'order-detail.html?id=' + row.dataset.id;
+  });
+
+  Biz.subscribe(render);
+})();
+</script>
+</body>
+</html>

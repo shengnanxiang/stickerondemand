@@ -25,6 +25,7 @@
     <button class="tab" data-k="making">制作中</button>
     <button class="tab" data-k="shipped">已发货</button>
     <button class="tab" data-k="done">已完成</button>
+    <button class="tab" data-k="aftersale">售后中</button>
     <button class="tab" data-k="closed">已关闭</button>
   </div>
 
@@ -35,6 +36,9 @@
 <script src="assets/js/store.js"></script>
 <script src="assets/js/pricing.js"></script>
 <script src="assets/js/ui.js"></script>
+<script src="demo/vendor/supabase.min.js"></script>
+<script src="demo/config.js"></script>
+<script src="assets/js/cloud.js"></script>
 <script>
 (function () {
   'use strict';
@@ -58,23 +62,40 @@
       '<a class="btn btn-outline btn-sm" href="order-detail.html?id=' + o.id + '">订单详情</a>';
     if (o.status === 'shipped') return '<a class="btn btn-primary btn-sm" href="logistics.html?id=' + o.id + '">查看物流</a>' +
       '<a class="btn btn-outline btn-sm" href="order-detail.html?id=' + o.id + '">订单详情</a>';
-    if (o.status === 'making') return '<a class="btn btn-outline btn-sm" href="order-detail.html?id=' + o.id + '">订单详情</a>';
+    if (o.status === 'making' || o.status === 'paid' || o.status === 'accepted')
+      return '<a class="btn btn-outline btn-sm" href="order-detail.html?id=' + o.id + '">订单详情</a>';
     if (o.status === 'done') return '<button class="btn btn-outline btn-sm" data-again="' + o.id + '">再来一单</button>' +
       '<a class="btn btn-ghost btn-sm" href="order-detail.html?id=' + o.id + '">订单详情</a>';
+    if (o.status === 'aftersale')
+      return '<a class="btn btn-outline btn-sm" href="order-detail.html?id=' + o.id + '">售后进度</a>';
     return '<button class="btn btn-outline btn-sm" data-again="' + o.id + '">再来一单</button>';
   }
 
   function statusNote(o) {
     if (o.status === 'pending') return '超时未支付会自动关闭，记得完成付款';
+    if (o.status === 'paid') return '已支付，等待供应商接单';
+    if (o.status === 'accepted') return '供应商已接单，即将开始制作';
     if (o.status === 'making') return '已送达厂商，预计 2 个工作日内完成';
     if (o.status === 'shipped') return '快递在路上，签收后订单完成';
     if (o.status === 'done') return '已完成，欢迎再来';
+    if (o.status === 'aftersale') return '售后处理中，供应商会尽快跟进';
     if (o.status === 'closed') return '订单已关闭（超时未支付）';
     return '';
   }
 
   function render() {
-    var all = Store.orders.all();
+    var local = Store.orders.all();
+    var cloud = Cloud.ok() ? Cloud.list() : [];
+    /* 合并：云端订单在前，本地旧订单（无 isCloud 标记且不在云端）在后 */
+    var cloudIds = {};
+    cloud.forEach(function (o) { cloudIds[o.id] = true; });
+    var all = cloud.concat(local.filter(function (o) { return !cloudIds[o.id]; }));
+    var user = Store.auth.user();
+    if (user) {
+      /* 只展示本人的云端订单 + 本地订单（演示：按 userId 匹配昵称/手机号） */
+      var mineCloud = cloud.filter(function (o) { return o.userId === (user.nickname || user.phone); });
+      if (mineCloud.length || cloud.length === 0) all = mineCloud.concat(local.filter(function (o) { return !cloudIds[o.id]; }));
+    }
     var list = filter === 'all' ? all : all.filter(function (o) { return o.status === filter; });
 
     if (!list.length) {
@@ -106,7 +127,7 @@
 
     UI.qsa('[data-again]').forEach(function (b) {
       b.addEventListener('click', function () {
-        var o = Store.orders.get(b.dataset.again);
+        var o = Store.orders.get(b.dataset.again) || (Cloud.ok() ? Cloud.get(b.dataset.again) : null);
         if (!o) return;
         // 复用设计：按名字找回作品，找不到就新建一个同名草稿
         var w = null;
@@ -125,6 +146,8 @@
   }
 
   render();
+  /* 云端订单实时刷新（供应商发货/签收后自动更新） */
+  if (Cloud.ok()) Cloud.subscribe(function () { render(); });
 })();
 </script>
 </body>
