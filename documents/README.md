@@ -22,6 +22,7 @@
 | `StickerMule深度分析.md` | Sticker Mule 官网八页深拆 + 三收入线对照（2026-09-29） |
 | `SESSION-2026-09-30.md` | 工作纪要——云端化演示上线全记录：架构决策、6 个坑及解法、13 步端到端验证、待办 |
 | `SESSION-2026-10-09.md` | 工作纪要——2C 内部反馈（冷水）后的战略再思考：需求本质、刺激机制、节点 ROI 防御、等待悖论拆解、行动建议 |
+| `E2E-VERIFICATION-2026-10-12.md` | 验证报告——线上闭环自提履约（biz_ 双态）端到端验收定稿：21/21 全绿、D-01~D-05 缺陷闭环、三轮 e2e 证据链 |
 | `BRIEF.md` | 内部战略简报——把「市场→用户→定义→终局→Phase 0」一次讲透（配套幻灯片 `pitch/C-internal/`） |
 | `Sticker On Demand - PRD (legacy).md` | 初版 PRD，已被 `SOD.md` + `WEB-APP-PRD.md` 取代，留档备查 |
 
