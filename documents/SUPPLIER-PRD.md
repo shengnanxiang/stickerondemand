@@ -57,9 +57,11 @@ flowchart LR
 |---|---|
 | 派单 | 下单时按收货地址 region 自动匹配服务地区供应商；未命中走默认供应商 |
 | 发号器 | `biz_counters` 表 + 行锁，订单号 `SO + yyyymmdd + 3 位序号` |
-| 状态机 v2 | `pending → paid → accepted → making → shipped → done`（+ `closed` / `aftersale`） |
+| 状态机 v2 | `pending → paid → accepted → making → shipped → done`（+ `closed` / `aftersale`）；自提单 shipped 语义为「可取货」，见 §9 |
 | 服务端权威计价 | `biz_checkout` RPC 内重算金额并与前端 `amountExpect` 校验，不符即拒单 |
 | 双轨运行 | 用户端各页云端优先，`Cloud.ok()` 为假时回退本地 localStorage 行为 |
+| 交付方式双态 | `delivery_method`：`express` 快递 / `pickup` 自提（默认 express，详见 §9 自提增量） |
+| 标记可取 / 核码交付 | 自提线动作 `ready`（制作完成可取）/ `handover`（凭 4 位取货码交付，详见 §9） |
 
 ### 1.4 非目标（Non-Goals）
 
@@ -108,7 +110,7 @@ flowchart LR
 | 金额 | 商品小计 / 运费 / 券折扣 / 实付（分→元格式化） |
 | 收货地址 | name / phone / region / detail（jsonb 字段直展） |
 | 状态时间线 | 六阶段：待支付→待接单→已接单→制作中→已发货→已完成；时间戳取对应 *_at 字段 |
-| 处理动作 | 按当前状态显示：待接单→[接单]；已接单→[开始制作]；制作中→[发货]；已发货→[完成] |
+| 处理动作 | 按当前状态显示：待接单→[接单]；已接单→[开始制作]；制作中→[发货]；已发货→[完成]（自提增量：自提单分岔为 制作中→[标记可取 ready]、可取→[核码交付 handover]，见 §9.1） |
 | 发货弹层 | 物流公司（默认中通快递）+ 运单号（留空自动生成 `ZT+时间+随机`）；确认后 `biz_supplier_action('ship')` 并写入首条轨迹 |
 | 售后入口 | 已完成订单显示「售后记录」区块（若有） |
 
@@ -122,7 +124,7 @@ flowchart LR
 | 收入汇总卡 | 完成单数 / 总收入（分→元）/ 平均客单价 / 待提现余额 |
 | 明细表 | 每单：订单号 / 完成时间 / 张数 / 净收入（实付金额） |
 | 提现模拟 | 按钮调 `biz_withdraw`（全额提现语义：amount 传空提全部）；成功后余额清零并记 `biz_withdrawals` 流水 |
-| 状态结转 | done 结转时机 = `biz_supplier_action('complete')`（shipped→done 同时 `balance += amount`） |
+| 状态结转 | done 结转时机 = `biz_supplier_action('complete')`（shipped→done 同时 `balance += amount`）；2026-10-12 起 `handover`（自提核码）与 `biz_user_action('confirm')`（用户签收）同为 done 结转入口，三口径一致 |
 
 ### 2.5 店铺设置页（`studio/settings.html`）
 
@@ -162,25 +164,28 @@ flowchart LR
 | 表 | 用途 | 关键字段 |
 |---|---|---用户
 | `biz_suppliers` | 供应商 | id / name / password / region_codes[] / address / open_hours / daily_cap / stock_mica / stock_silver / is_default / balance |
-| `biz_orders` | 主订单 | id(SO+日期+序号) / user_id / supplier_id / status / n / subtotal / shipping / discount / amount / coupon_type / address(jsonb) / note / ship_company / ship_no / 六个状态时间戳 |
+| `biz_orders` | 主订单 | id(SO+日期+序号) / user_id / supplier_id / status / n / subtotal / shipping / discount / amount / coupon_type / address(jsonb) / note / ship_company / ship_no / 六个状态时间戳 / delivery_method / pickup_code / ready_at（2026-10-12 自提增量，见 §9.1） |
 | `biz_order_items` | 贴纸快照 | order_id / name / thumb(dataURL) / copies |
 | `biz_logistics_tracks` | 物流轨迹 | order_id / d(描述) / created_at |
 | `biz_aftersales` | 售后工单 | order_id / supplier_id / kind(redo/reship/refund) / reason / status(open/done) / result |
 | `biz_withdrawals` | 提现流水 | supplier_id / amount |
 | `biz_counters` | 发号计数器 | k('order') / v |
 
-### 3.2 RPC 清单（13 个，全部 SECURITY DEFINER）
+### 3.2 RPC 清单（14 个，全部 SECURITY DEFINER）
+
+> 2026-10-12 自提增量后：新增 `biz_pickup_code`；`biz_checkout` / `biz_supplier_action` 签名与动作集演进，详见 §9.1。
 
 | RPC | 端 | 入参 → 出参 | 职责 |
 |---|---|---|---|
 | `biz_price_total(n, coupon)` | 内部 | int→int | 服务端计价（1-2张¥9.9/张、3-4张¥7.9、5+张¥5.9；1张运费¥5、2张+包邮；freeship 抵运费、general 减¥5） |
 | `biz_next_order_no()` | 内部 | →text | 发号（行锁防撞号） |
 | `biz_match_supplier(region)` | 内部 | text→text | 地址派单（region 匹配 region_codes，未命中走默认） |
-| `biz_checkout` | 用户 | user_id, items[], address, coupon_type, note, amount_expect → {ok,id,amount} | 建单 + 服务端权威计价 + 派单 |
+| `biz_pickup_code(order_id)` | 内部 | text→text | 取货码生成（订单号数字段哈希 4 位，算法见 §9.2） |
+| `biz_checkout` | 用户 | user_id, items[], address, coupon_type, note, amount_expect, delivery_method?(默认 express) → {ok,id,amount,delivery_method,pickup_code,ready_at} | 建单 + 服务端权威计价 + 派单（自提单免运费/免地址/生成取货码，见 §9.1） |
 | `biz_pay` | 用户 | id → {ok,status} | pending→paid |
-| `biz_user_action` | 用户 | id, action(cancel/confirm) → {ok,status} | 取消 / 签收 |
+| `biz_user_action` | 用户 | id, action(cancel/confirm) → {ok,status} | 取消 / 签收（confirm 结转货款给供应商，与 complete 同口径——2026-10-12 D-05 修复） |
 | `biz_open_aftersale` | 用户 | order_id, kind, reason → {ok,id} | 提交售后（订单转 aftersale） |
-| `biz_supplier_action` | 商家 | order_id, action(accept/make/ship/complete), payload → {ok,status} | 状态流转单入口；ship 写单号+轨迹，complete 结转货款 |
+| `biz_supplier_action` | 商家 | order_id, action(accept/make/ship/complete + 自提线 ready/handover), payload → {ok,status} | 状态流转单入口；ship 写单号+轨迹，complete 结转货款；自提线 ready 标记可取、handover 核码交付（payload 键 `code`），见 §9.1 |
 | `biz_login` | 商家 | supplier_id, password → {ok,id,name} | 模拟登录 |
 | `biz_save_settings` | 商家 | supplier_id, settings → {ok} | 店铺设置 |
 | `biz_withdraw` | 商家 | supplier_id, amount → {ok,amount} | 提现（空=全额） |
@@ -293,7 +298,7 @@ flowchart TD
 | 项 | 说明 |
 |---|---|
 | 托管 | GitHub Pages（静态），与用户端同仓库同域 |
-| SQL 迁移 | `supabase/biz-schema.sql`（幂等可重复执行，2026-10-09 已在 SQL Editor 执行） |
+| SQL 迁移 | `supabase/biz-schema.sql`（幂等可重复执行，2026-10-09 基线已执行；2026-10-12 自提增量段追加于文件末尾，整段重跑安全，见 §9） |
 | 配置 | `studio/config.js` + 用户端复用 `demo/config.js`（同项目连接；换项目时两处同改） |
 | 演示重置 | `Biz.reset()` → biz_reset RPC 清订单类数据，保留店铺配置 |
 | 回滚 | biz_ 表与 demo_ 隔离，删除 publication 成员与 RPC 即可完全摘除，不影响演示表 |
@@ -308,3 +313,48 @@ flowchart TD
 - **售后规则引擎**：仅退款/部分退款/换货细分工单流（当前三分类简化）
 - **数据看板**：供应商维度日报/周报推送（当前仅店内自统计）
 - **移动端**：PWA 适配（当前桌面工作台）
+
+---
+
+## 9. 2026-10-12 自提增量
+
+> **范围**：`biz_` 管道支持 `delivery_method`（express / pickup）双态履约。用户侧交互规格见 `FULFILLMENT-PRD.md` §2.1-2.3（配送方式区默认自提 / 取货码 / 预计可取时间）。本节为数据层与 RPC 契约的增量规格，已同步落地 `supabase/biz-schema.sql` 追加迁移段。
+
+### 9.1 数据与 RPC 变更
+
+| 变更 | 规格 |
+|---|---|
+| `biz_orders` 新列 | `delivery_method text not null default 'express'`（check 约束 express/pickup）/ `pickup_code text`（自提单 4 位数字）/ `ready_at timestamptz`（预计可取时刻）——幂等 alter，老订单由默认值回填 express |
+| `biz_pickup_code` RPC | 新增：订单号数字段哈希生成取货码（§9.2），immutable |
+| `biz_checkout` 演进 | 新增第 7 参 `p_delivery_method text default 'express'`（旧 6 参签名 drop 重建，PostgREST 无重载歧义；老调用方不传参自动 express，行为不变）。pickup 单：免运费（shipping=0）、freeship 券不适用（general 券照减）、`p_address` 可传 `{}`（region 空 → 派默认供应商即自提门店）、生成 pickup_code 并写 ready_at（演示口径：下单 + 2h；生产口径见 `FULFILLMENT-PRD.md` §3.3 截单 18:00 规则）。返回新增 `delivery_method` / `pickup_code` / `ready_at`（express 单后两者为 null） |
+| `biz_supplier_action` 演进 | 新增自提线动作（快递线 accept/make/ship/complete 四动作不变）：`ready` = making→shipped（自提语境「制作完成可取」，ship_company/ship_no 留空，写首条轨迹「已制作完成，待到店自提」）；`handover` = shipped→done（核码交付，`p_payload->>'code'` 与 pickup_code 4 位全匹配才通过，错码返回 `取货码不正确`；通过后与 complete 同口径结转供应商余额） |
+| 自提线状态语义 | 自提单 `shipped` = 可取货、`done` = 已自提（`FULFILLMENT-PRD.md` §2.4 状态机 v2 的映射落地；前端按 `status='shipped' and delivery_method='pickup'` 渲染核码入口） |
+| ship 动作守卫 | ship 仅对快递单生效（自提单误调返回「订单不存在或当前状态不允许该操作」）；complete 保留为 shipped→done 通用兜底（如超时未取闭环） |
+| 白名单 / Realtime | `biz_pickup_code`、新签名 `biz_checkout` grant 给 anon/authenticated；biz_orders 表级 Realtime 发布已覆盖新列，无需变更 |
+| done 结转口径统一（D-05 修复，2026-10-12） | `biz_user_action('confirm')`（用户签收）补货款结转，与 `complete` / `handover` 三入口一致：shipped→done 命中即 `balance += amount`（found 守卫，幂等）。修因：自提增量后快递单主路径 done 入口变为用户签收，老版 confirm 只翻状态漏结 |
+
+### 9.2 取货码算法（跨端契约，本地回退复刻同一实现）
+
+1. 取订单号内**全部数字字符**（`SO20261012001` → `20261012001`），按原顺序处理；
+2. 哈希初值 `h = 5381`；每字符 `h = (h * 31 + ascii(字符)) mod 1000000007`；
+3. 取货码 = `h mod 10000`，左补零到 4 位。
+
+JS 复刻（本地回退用；`h*31+charCode` 峰值 < 2^53，number 无精度问题）：
+
+```js
+function pickupCode(orderId) {
+  var s = (orderId || '').replace(/\D/g, '');
+  var h = 5381;
+  for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 1000000007;
+  return ('0000' + (h % 10000)).slice(-4);
+}
+```
+
+对拍样例（双实现核验一致，可作断言用例）：`SO20261012001 → 5883`、`SO20261013002 → 5675`、`SO20261014003 → 5467`、`SO20261101001 → 1722`。
+
+### 9.3 对既有章节的增补说明
+
+- **§1.3 术语表**：新增「交付方式双态」「标记可取 / 核码交付」两行；「状态机 v2」补自提语义注记。
+- **§3.1 表结构**：`biz_orders` 关键字段追加 `delivery_method / pickup_code / ready_at`。
+- **§3.2 RPC 清单**：RPC 数量 13 → 14（新增 `biz_pickup_code`）；`biz_checkout` / `biz_supplier_action` 签名与动作集以 §9.1 为准。
+- **§5 验证清单**：自提线新增走查路径——下单（自提，地址传 {}）→ 支付 → 接单 → 开始制作 → 标记可取（ready）→ 错码 handover 被拒 → 对码 handover 通过 → 订单 done 且供应商余额 +amount；快递线全流程回归不变。

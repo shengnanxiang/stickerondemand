@@ -11,6 +11,13 @@
   .o-head { display: flex; align-items: center; gap: 10px; }
   .o-note { font-size: 12.5px; color: var(--ink-3); }
   .o-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+  /* 自提单取货码徽标 */
+  .o-pickup {
+    display: inline-flex; align-items: baseline; gap: 6px; margin-top: 6px;
+    padding: 4px 10px; border-radius: var(--r-full); background: var(--brand-soft);
+    font-size: 12px; color: var(--brand-deep); font-weight: 700;
+  }
+  .o-pickup b { font-size: 15px; letter-spacing: 2px; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -60,6 +67,8 @@
   function nextAction(o) {
     if (o.status === 'pending') return '<a class="btn btn-primary btn-sm" href="payment.html?id=' + o.id + '">去支付</a>' +
       '<a class="btn btn-outline btn-sm" href="order-detail.html?id=' + o.id + '">订单详情</a>';
+    if (o.status === 'shipped' && o.deliveryMethod === 'pickup')
+      return '<a class="btn btn-primary btn-sm" href="order-detail.html?id=' + o.id + '">查看取货码</a>';
     if (o.status === 'shipped') return '<a class="btn btn-primary btn-sm" href="logistics.html?id=' + o.id + '">查看物流</a>' +
       '<a class="btn btn-outline btn-sm" href="order-detail.html?id=' + o.id + '">订单详情</a>';
     if (o.status === 'making' || o.status === 'paid' || o.status === 'accepted')
@@ -73,11 +82,14 @@
 
   function statusNote(o) {
     if (o.status === 'pending') return '超时未支付会自动关闭，记得完成付款';
-    if (o.status === 'paid') return '已支付，等待供应商接单';
-    if (o.status === 'accepted') return '供应商已接单，即将开始制作';
+    if (o.status === 'paid') return o.deliveryMethod === 'pickup' ? '已支付，等待门店接单' : '已支付，等待供应商接单';
+    if (o.status === 'accepted') return o.deliveryMethod === 'pickup' ? '门店已接单，即将开始制作' : '供应商已接单，即将开始制作';
     if (o.status === 'making') return '已送达厂商，预计 2 个工作日内完成';
-    if (o.status === 'shipped') return '快递在路上，签收后订单完成';
-    if (o.status === 'done') return '已完成，欢迎再来';
+    if (o.status === 'shipped')
+      return o.deliveryMethod === 'pickup'
+        ? '已制作完成，凭取货码到门店领取'
+        : '快递在路上，签收后订单完成';
+    if (o.status === 'done') return o.deliveryMethod === 'pickup' ? '已取货完成，欢迎再来' : '已完成，欢迎再来';
     if (o.status === 'aftersale') return '售后处理中，供应商会尽快跟进';
     if (o.status === 'closed') return '订单已关闭（超时未支付）';
     return '';
@@ -108,8 +120,12 @@
 
     $('#order-area').innerHTML = '<div class="stack gap-12">' + list.map(function (o) {
       var thumb = (o.items[0] && o.items[0].thumb) || '';
+      var isPickup = o.deliveryMethod === 'pickup';
+      /* 本地自提单缺 pickupCode 字段时按订单号现算（与 SQL 规则一致） */
+      var pcode = isPickup ? (o.pickupCode || (window.Cloud && Cloud.pickupCodeOf(o.id))) : null;
       return '<div class="card o-card">' +
         '<div class="o-head">' + UI.statusPill(o.status) +
+          (isPickup ? '<span class="pill pill-brand">到店自提</span>' : '') +
           '<span class="o-note grow">' + o.id + ' · ' + Store.util.fmtTime(o.createdAt) + '</span>' +
         '</div>' +
         '<div class="row gap-16 mt-12">' +
@@ -119,6 +135,7 @@
               (o.items.length > 1 ? ' 等 ' + o.items.length + ' 件' : '') + '</div>' +
             '<div class="t-tiny muted mt-4">共 ' + o.n + ' 张 · 实付 ' + Pricing.fmtYuan(o.amount) + '</div>' +
             '<div class="t-tiny muted mt-4">' + UI.escapeHtml(statusNote(o)) + '</div>' +
+            (pcode ? '<span class="o-pickup">取货码 <b>' + pcode + '</b></span>' : '') +
           '</div>' +
         '</div>' +
         '<div class="o-actions">' + nextAction(o) + '</div>' +

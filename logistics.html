@@ -26,10 +26,9 @@
   if (!UI.guard()) return;
   UI.mountNav('orders');
 
-  var order = Store.orders.get(UI.param('id'));
-  if ((!order || !order.logistics) && Cloud.ok()) order = Cloud.get(UI.param('id'));
-  if (!order) { location.href = 'orders.html'; return; }
-  var lg = order.logistics;
+  var orderId = UI.param('id');
+  var order = Store.orders.get(orderId);
+  var lg = null;
 
   function render() {
     order = Store.orders.get(order.id) || (Cloud.ok() ? Cloud.get(order.id) : null) || order;
@@ -126,9 +125,46 @@
     });
   }
 
-  render();
-  /* 云端物流实时刷新（供应商发货后自动出现轨迹） */
-  if (Cloud.ok() && order.isCloud) Cloud.subscribe(function () { render(); });
+  /* 首次进入：本地单直接渲染；云端单等 SDK 首帧数据（subscribe 回调里取单），4s 超时才 redirect */
+  var booted = false;
+  function boot() {
+    if (booted) return;
+    if (order) {
+      if (!order.logistics && Cloud.ok() && !order.isCloud) {
+        /* 本地旧单无物流：尝试云端补（旧行为兼容） */
+        var c = Cloud.get(order.id);
+        if (c) order = c;
+      }
+      booted = true;
+      render();
+      return;
+    }
+    if (Cloud.ok()) return; /* 等首帧 */
+    location.href = 'orders.html';
+  }
+
+  if (order) {
+    boot();
+  } else if (Cloud.ok()) {
+    /* 云端单等 SDK 首帧；首帧到了仍无此单时立即 redirect，否则 4s 兜底 */
+    var firstFrame = false;
+    var sub = Cloud.subscribe(function () {
+      if (!booted) {
+        if (!firstFrame) firstFrame = true;
+        order = Cloud.get(orderId);
+        if (order) boot();
+        else if (firstFrame) { sub.unsubscribe(); location.href = 'orders.html'; }
+      } else render();
+    });
+    setTimeout(function () {
+      if (!booted) { sub.unsubscribe(); location.href = 'orders.html'; }
+    }, 4000);
+  } else {
+    location.href = 'orders.html';
+    return;
+  }
+
+  /* 云端物流实时刷新（供应商发货后自动出现轨迹）；重渲时按钮事件随 innerHTML 重建，天然幂等 */
 })();
 </script>
 </body>

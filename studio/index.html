@@ -46,7 +46,7 @@
       return ['paid', 'accepted', 'making'].indexOf(o.status) >= 0;
     }).sort(function (a, b) {
       // 待接单（paid）排最前，按支付时间先后逐单处理
-      var ra = o.status === 'paid' ? 0 : 1, rb = b.status === 'paid' ? 0 : 1;
+      var ra = a.status === 'paid' ? 0 : 1, rb = b.status === 'paid' ? 0 : 1;
       if (ra !== rb) return ra - rb;
       return (a.paidAt || a.createdAt) - (b.paidAt || b.createdAt);
     });
@@ -121,15 +121,19 @@
     var items = o.items || [];
     var first = items[0] || {};
     var isPaid = o.status === 'paid';
+    /* 2026-10-12 自提增量：配送方式 pill（旧订单兜底快递） */
+    var dm = o.deliveryMethod || 'express';
     return '<div class="biz-row" data-id="' + o.id + '">' +
       '<div class="thumb-sm"><img src="' + (first.thumb || '') + '" alt=""></div>' +
       '<div class="minw0">' +
-        '<div class="biz-order-id">' + o.id + ' · ' + BizUtil.ago(o.paidAt || o.createdAt) + '</div>' +
+        '<div class="biz-order-id">' + BizUtil.deliveryPill(dm) + ' ' + o.id + ' · ' + BizUtil.ago(o.paidAt || o.createdAt) + '</div>' +
         '<div class="biz-order-main">' + BizUtil.escapeHtml(first.name || '贴纸') +
           (items.length > 1 ? ' 等 ' + items.length + ' 件' : '') + '</div>' +
-        '<div class="biz-order-sub">' + BizUtil.escapeHtml((o.address && o.address.region) || '') + ' · 共 ' + o.n + ' 张</div>' +
+        '<div class="biz-order-sub">' + (dm === 'pickup'
+          ? '到店自提' + (o.readyAt ? ' · ' + BizUtil.fmtTime(o.readyAt) + ' 可取' : '')
+          : BizUtil.escapeHtml((o.address && o.address.region) || '')) + ' · 共 ' + o.n + ' 张</div>' +
       '</div>' +
-      '<div class="hide-sm">' + BizUtil.statusPill(o.status) + '</div>' +
+      '<div class="hide-sm">' + BizUtil.statusPill(o.status, o.deliveryMethod) + '</div>' +
       '<div class="biz-amount hide-sm">¥' + BizUtil.fmtFen(o.amount) + '</div>' +
       '<div class="right">' +
         (isPaid ? '<button class="btn btn-primary btn-sm" data-accept="' + o.id + '">接单</button>' :

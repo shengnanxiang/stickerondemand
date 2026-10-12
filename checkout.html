@@ -26,6 +26,26 @@
   .coupon-card[disabled] { opacity: .55; background: var(--cream-100); }
   .coupon-amount { width: 64px; flex: none; text-align: center; color: var(--brand); }
   .coupon-amount b { font-size: 22px; font-weight: 800; line-height: 1; }
+  /* 配送方式双卡（自提 / 快递） */
+  .dm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 560px) { .dm-grid { grid-template-columns: 1fr; } }
+  .dm-card {
+    display: flex; gap: 12px; align-items: flex-start; text-align: left;
+    padding: 14px 16px; border-radius: var(--r-md); border: 1.5px solid var(--line-strong); background: #fff;
+    transition: border-color .16s var(--ease), background .16s var(--ease);
+  }
+  .dm-card.is-active { border-color: var(--brand); background: var(--brand-soft); }
+  .dm-radio {
+    width: 20px; height: 20px; border-radius: 50%; flex: none; margin-top: 2px;
+    border: 2px solid var(--line-strong); background: #fff; transition: border-color .16s var(--ease), box-shadow .16s var(--ease);
+  }
+  .dm-card.is-active .dm-radio { border-color: var(--brand); box-shadow: inset 0 0 0 5px var(--brand); }
+  .dm-title { font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .dm-desc { font-size: 12.5px; line-height: 1.6; color: var(--ink-3); margin-top: 4px; }
+  .dm-store { font-size: 12.5px; line-height: 1.6; color: var(--ink-2); margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); }
+  .dm-tag { padding: 1px 8px; border-radius: var(--r-full); font-size: 11px; font-weight: 700; background: var(--mint-soft); color: #2F7E65; }
+  .dm-tag.is-fee { background: var(--cream-200); color: var(--ink-2); }
+  .addr-hide { display: none; }
   .hook-bar {
     display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: var(--r-md);
     background: var(--brand-soft); border: 1px dashed #FFC4A6; color: var(--brand-deep);
@@ -45,8 +65,33 @@
 
   <div class="ck-layout">
     <section class="stack gap-16">
-      <!-- 收货地址 -->
+      <!-- 配送方式（自提 / 快递，默认自提） -->
       <div class="card card-pad">
+        <div class="row between mb-12">
+          <span class="t-h3">配送方式</span>
+          <span class="t-tiny muted">自提免运费，今日下单今日可取</span>
+        </div>
+        <div class="dm-grid">
+          <button class="dm-card" data-dm="pickup" id="dm-pickup" type="button">
+            <span class="dm-radio"></span>
+            <span class="col grow">
+              <span class="dm-title">到店自提 <span class="dm-tag">免运费</span></span>
+              <span class="dm-desc">制作完成后凭取货码到店领取，预计 <b id="dm-ready">2 小时后</b> 可取</span>
+              <span class="dm-store" id="dm-store"></span>
+            </span>
+          </button>
+          <button class="dm-card" data-dm="express" id="dm-express" type="button">
+            <span class="dm-radio"></span>
+            <span class="col grow">
+              <span class="dm-title">快递配送 <span class="dm-tag is-fee">1 张收 5 元 · 满 2 张包邮</span></span>
+              <span class="dm-desc">48 小时内送达，发货后可在订单页查看物流</span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 收货地址（选自提时折叠隐藏） -->
+      <div class="card card-pad" id="addr-card">
         <div class="row between mb-12">
           <span class="t-h3">收货地址</span>
           <a class="btn btn-ghost btn-xs" href="address.html?from=checkout">地址管理</a>
@@ -122,6 +167,45 @@
   var selAddrId = (Store.addresses.defaultAddr() || {}).id;
   var selCouponId = null;
 
+  /* ---- 配送方式（默认自提）---- */
+  var delivery = 'pickup';
+  var storeInfo = null; /* 自提门店（云端 is_default 供应商，回退固定演示门店） */
+
+  function fallbackStore() {
+    return Cloud.demoStore || { name: '上海徐汇工作室', address: '上海市徐汇区漕溪北路 100 号 1 层', openHours: '09:00 - 20:00' };
+  }
+  function renderStore() {
+    var s = storeInfo || fallbackStore();
+    $('#dm-store').innerHTML = '<b>' + UI.escapeHtml(s.name) + '</b><br>' +
+      UI.escapeHtml(s.address) + ' · 营业时间 ' + UI.escapeHtml(s.openHours);
+  }
+  function renderReady() {
+    /* 演示口径：下单 + 2 小时（与云端 ready_at 规则一致） */
+    var t = new Date(Date.now() + 2 * 3600 * 1000);
+    $('#dm-ready').textContent = '今日 ' + t.getHours() + ':' + (t.getMinutes() < 10 ? '0' : '') + t.getMinutes();
+  }
+  if (Cloud.ok()) {
+    storeInfo = Cloud.pickupStore();
+    Cloud.subscribe(function () {
+      storeInfo = Cloud.pickupStore() || storeInfo;
+      renderStore();
+    });
+  }
+  renderStore(); renderReady();
+
+  function setDelivery(m) {
+    delivery = m;
+    $('#dm-pickup').classList.toggle('is-active', m === 'pickup');
+    $('#dm-express').classList.toggle('is-active', m === 'express');
+    $('#addr-card').classList.toggle('addr-hide', m === 'pickup');
+    /* 自提与免运费券互斥：切到自提时若正持有免运费券，先释放 */
+    var cp = currentCoupon();
+    if (cp && cp.type === 'freeship' && delivery === 'pickup') selCouponId = null;
+    renderCoupons(); renderSummary();
+  }
+  $('#dm-pickup').addEventListener('click', function () { setDelivery('pickup'); });
+  $('#dm-express').addEventListener('click', function () { setDelivery('express'); });
+
   /* ---- 地址 ---- */
   function renderAddr() {
     var list = Store.addresses.all();
@@ -159,7 +243,7 @@
     }).join('');
   }
 
-  /* ---- 券 ---- */
+  /* ---- 券（自提单免运费券不可用，置灰并提示）---- */
   function renderCoupons() {
     var available = Store.coupons.available();
     $('#coupon-count').textContent = available.length ? ('可用 ' + available.length + ' 张') : '暂无可用券';
@@ -169,8 +253,8 @@
       '<span class="col grow"><span class="t-sm strong">不使用优惠券</span></span></button>';
 
     html += available.map(function (c) {
-      var ok = Pricing.isValid(c, n);
-      var reason = Pricing.invalidReason(c, n);
+      var ok = Pricing.isValid(c, n) && !(delivery === 'pickup' && c.type === 'freeship');
+      var reason = (delivery === 'pickup' && c.type === 'freeship') ? '自提订单免运费，无需免运费券' : Pricing.invalidReason(c, n);
       return '<button class="coupon-card' + (selCouponId === c.id ? ' is-active' : '') + '" ' +
         'data-cp="' + c.id + '"' + (ok ? '' : ' disabled') + '>' +
         '<span class="coupon-amount"><b>¥' + c.amount + '</b></span>' +
@@ -200,16 +284,37 @@
     return null;
   }
 
-  function renderSummary() {
+  /* 自提单计价：不收运费、免运费券不适用（通用券照减）——与 biz_checkout SQL 口径一致 */
+  function quoteCurrent() {
     var cp = currentCoupon();
-    if (cp && !Pricing.isValid(cp, n)) { selCouponId = null; renderCoupons(); cp = null; }
-    var q = Pricing.quote(n, cp);
+    if (delivery !== 'pickup') return { q: Pricing.quote(n, cp), cp: cp };
+    var base = Pricing.quote(n, null);
+    var d = (cp && cp.type === 'general') ? Pricing.COUPON_AMOUNT : 0;
+    return {
+      cp: cp,
+      q: {
+        subtotal: base.subtotal, shipping: 0, shippingOriginal: 0, discount: d,
+        lines: d ? [{ key: '通用券（邀请奖励）', value: -d }] : [],
+        total: Math.max(0, Math.round((base.subtotal - d) * 100) / 100)
+      }
+    };
+  }
+
+  function renderSummary() {
+    var cur = quoteCurrent();
+    var cp = cur.cp, q = cur.q;
+    /* 券失效自动释放（含自提+免运费券组合） */
+    if (cp && !Pricing.isValid(cp, n)) { selCouponId = null; renderCoupons(); cur = quoteCurrent(); cp = cur.cp; q = cur.q; }
 
     var lines =
       '<div class="price-row"><span class="k">共 ' + n + ' 张（' + bag.length + ' 个设计）</span>' +
       '<span class="v">' + Pricing.fmtYuan(q.subtotal) + '</span></div>';
-    lines += '<div class="price-row mt-8"><span class="k">运费' + (q.shippingOriginal === 0 ? '（已满 2 张）' : '') + '</span>' +
-      '<span class="v">' + (q.shipping === 0 ? '包邮' : Pricing.fmtYuan(q.shipping)) + '</span></div>';
+    if (delivery === 'pickup') {
+      lines += '<div class="price-row mt-8"><span class="k">运费（到店自提）</span><span class="v">免运费</span></div>';
+    } else {
+      lines += '<div class="price-row mt-8"><span class="k">运费' + (q.shippingOriginal === 0 ? '（已满 2 张）' : '') + '</span>' +
+        '<span class="v">' + (q.shipping === 0 ? '包邮' : Pricing.fmtYuan(q.shipping)) + '</span></div>';
+    }
 
     q.lines.forEach(function (l) {
       lines += '<div class="price-row mt-8 is-discount"><span class="k">' + UI.escapeHtml(l.key) + '</span>' +
@@ -220,6 +325,8 @@
     $('#sum-total').textContent = Pricing.fmt(q.total);
 
     var h = Pricing.hook(n);
+    /* 自提单已免运费，凑单话术里「包邮」改为通用卖点 */
+    if (h && delivery === 'pickup' && h.sub === '再加一张就包邮了') h.sub = '多印多划算';
     $('#hook-slot').innerHTML = h ? '<div class="hook-bar' + (h.strength === 'weak' ? ' is-weak' : '') + '">' +
       UI.icon('sparkles') + '<span class="col">' +
       '<span>' + UI.escapeHtml(h.text) + '</span>' +
@@ -231,16 +338,20 @@
   var submitting = false;
   $('#btn-submit').addEventListener('click', function () {
     if (submitting) return;
-    if (!selAddrId) { UI.toast('请先选择收货地址', 'warn'); return; }
-    var cp = currentCoupon();
-    var q = Pricing.quote(n, cp);
-    var addr = Store.addresses.get(selAddrId);
+    if (delivery === 'express' && !selAddrId) { UI.toast('请先选择收货地址', 'warn'); return; }
+    var cur = quoteCurrent();
+    var q = cur.q;
+    var cp = cur.cp;
+    /* 实际使用的券：自提单忽略免运费券（不核销、不传云端） */
+    if (cp && delivery === 'pickup' && cp.type === 'freeship') cp = null;
+    var isPickup = delivery === 'pickup';
+    var addr = isPickup ? {} : Store.util.clone(Store.addresses.get(selAddrId));
 
     var payload = {
       items: bag.map(function (b) { return { name: b.name, thumb: b.thumb, copies: b.copies }; }),
-      n: n, amount: q.total, subtotal: q.subtotal, shipping: q.shippingOriginal,
+      n: n, amount: q.total, subtotal: q.subtotal, shipping: isPickup ? 0 : q.shippingOriginal,
       couponType: cp ? cp.type : null, couponDiscount: q.discount,
-      address: Store.util.clone(addr), note: $('#note').value.trim()
+      deliveryMethod: delivery, address: addr, note: $('#note').value.trim()
     };
 
     /* 云端可用：单 RPC 建单（服务端权威计价 + 发号 + 按地址派单给供应商） */
@@ -256,10 +367,12 @@
         address: payload.address,
         couponType: payload.couponType,
         note: payload.note,
-        amountExpect: q.total
+        amountExpect: q.total,
+        deliveryMethod: payload.deliveryMethod
       }).then(function (r) {
         if (r && r.ok) {
-          afterSubmit(cp, { id: r.id, amount: r.amount / 100 });
+          afterSubmit(cp, { id: r.id, amount: r.amount / 100,
+            pickupCode: r.pickup_code || null, deliveryMethod: r.delivery_method || payload.deliveryMethod });
         } else {
           submitting = false;
           btn.disabled = false; btn.textContent = '提交订单';
@@ -273,12 +386,17 @@
       return;
     }
 
-    /* 云端未配置：本地降级（保留旧行为） */
+    /* 云端未配置：本地降级（自提单模拟取货码，与 SQL 规则一致） */
     var order = Store.orders.create(payload);
+    if (isPickup) {
+      order.pickupCode = Cloud.pickupCodeOf(order.id);
+      order.readyAt = Cloud.readyAtFrom(order.createdAt);
+      Store.save(); /* create 后追加字段需再落一次盘，跨页才不丢 */
+    }
     afterSubmit(cp, order);
   });
 
-  /* 下单成功后的统一收尾：核销本地券 → 作品转历史 → 清袋 → 去支付 */
+  /* 下单成功后的统一收尾：核销本地券 → 作品转历史 → 清袋 → 去支付（自提单带标记） */
   function afterSubmit(cp, order) {
     if (cp) Store.coupons.consume(cp.id);
     bag.forEach(function (b) {
@@ -286,9 +404,10 @@
       if (w) { w.kind = 'history'; Store.works.upsert(w); }
     });
     Store.bag.clear();
-    location.href = 'payment.html?id=' + order.id;
+    location.href = 'payment.html?id=' + order.id + (order.deliveryMethod === 'pickup' ? '&dm=pickup' : '');
   }
 
+  setDelivery('pickup');
   renderAddr(); renderItems(); renderCoupons(); renderSummary();
 })();
 </script>

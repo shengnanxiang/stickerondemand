@@ -14,6 +14,9 @@
   .step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line-strong); flex: none; margin-top: 5px; }
   .step-dot.is-done { background: var(--mint); }
   .step-dot.is-cur { background: var(--brand); box-shadow: 0 0 0 4px var(--brand-soft); }
+  /* 2026-10-12 自提增量：取货码展示 */
+  .biz-code-big { font-size: 17px; letter-spacing: 4px; font-weight: 800; color: var(--brand-deep); }
+  .biz-code-input { text-align: center; font-size: 24px; letter-spacing: 10px; font-weight: 800; height: 58px; }
 </style>
 </head>
 <body>
@@ -33,15 +36,32 @@
 
   var orderId = BizUtil.param('id');
   StudioNav.mount('home', 0);
+  var order = null;
 
-  var FLOW = [
-    { k: 'pending',  t: '待支付', f: 'createdAt' },
-    { k: 'paid',     t: '已支付', f: 'paidAt' },
-    { k: 'accepted', t: '已接单', f: 'acceptedAt' },
-    { k: 'making',   t: '制作中', f: 'madeAt' },
-    { k: 'shipped',  t: '已发货', f: 'shippedAt' },
-    { k: 'done',     t: '已完成', f: 'doneAt' }
-  ];
+  /* isPickup：配送方式（旧订单兜底 express） */
+  function isPickup(o) { return (o.deliveryMethod || 'express') === 'pickup'; }
+  /* 自提单是否已进入可取状态（制作完成待自提 / 已交付）：此时才展示取货码 */
+  function isReady(o) { return isPickup(o) && (o.status === 'shipped' || o.status === 'done') && o.pickupCode; }
+  /* 门店信息：优先本店配置，缺省回退演示文案 */
+  function pickupShopInfo(o) {
+    var s = Biz.getSupplier(o.supplierId);
+    var addr = (s && s.address) || '门店地址未设置（店铺设置中维护）';
+    var hours = (s && s.openHours) || '';
+    return hours ? addr + ' · ' + hours : addr;
+  }
+
+  /* 时间线：快递线 shipped='已发货'；自提线 shipped='已制作完成·待自提'（2026-10-12 自提增量） */
+  function flowOf(o) {
+    var pickup = isPickup(o);
+    return [
+      { k: 'pending',  t: '待支付', f: 'createdAt' },
+      { k: 'paid',     t: '已支付', f: 'paidAt' },
+      { k: 'accepted', t: '已接单', f: 'acceptedAt' },
+      { k: 'making',   t: '制作中', f: 'madeAt' },
+      { k: 'shipped',  t: pickup ? '已制作完成·待自提' : '已发货', f: 'shippedAt' },
+      { k: 'done',     t: pickup ? '已核码交付' : '已完成', f: 'doneAt' }
+    ];
+  }
   var IDX = { pending: 0, paid: 1, accepted: 2, making: 3, shipped: 4, done: 5 };
 
   function render(state) {
@@ -52,6 +72,9 @@
         '<a class="btn btn-outline btn-sm mt-12" href="index.html">返回工作台</a></div>';
       return;
     }
+    order = o; /* 供动作事件委托取最新状态 */
+    var pickup = isPickup(o);
+    var FLOW = flowOf(o);
 
     var cur = o.status === 'closed' ? -2 : (o.status === 'aftersale' ? 5 : (IDX[o.status] != null ? IDX[o.status] : -1));
 
@@ -60,7 +83,7 @@
         '<a class="btn btn-ghost btn-sm" href="index.html">← 工作台</a>' +
         '<h1>订单详情</h1>' +
         '<span class="biz-live"><span class="dot"></span>实时同步中</span>' +
-        '<span class="grow"></span>' + BizUtil.statusPill(o.status) +
+        '<span class="grow"></span>' + BizUtil.deliveryPill(o.deliveryMethod) + BizUtil.statusPill(o.status, o.deliveryMethod) +
       '</div>' +
 
       '<div class="biz-detail-grid">' +
@@ -80,17 +103,36 @@
               '<span><b>用户备注：</b>' + BizUtil.escapeHtml(o.note) + '</span></div>' : '') +
           '</div>' +
 
-          /* 收货地址 */
-          '<div class="card card-pad">' +
-            '<div class="t-h3 mb-12">收货信息</div>' +
-            '<div class="dl">' +
-              '<span class="k">收货人</span><span class="v">' + BizUtil.escapeHtml(o.address.name || '-') + '</span>' +
-              '<span class="k">电话</span><span class="v">' + BizUtil.escapeHtml(o.address.phone || '-') + '</span>' +
-              '<span class="k">地区</span><span class="v">' + BizUtil.escapeHtml(o.address.region || '-') + '</span>' +
-              '<span class="k">详细地址</span><span class="v">' + BizUtil.escapeHtml(o.address.detail || '-') + '</span>' +
-              '<span class="k">买家</span><span class="v">' + BizUtil.escapeHtml(o.userId || '-') + '</span>' +
-            '</div>' +
-          '</div>' +
+          /* 收货信息（快递单） / 自提信息（自提单，含取货码） */
+          (pickup
+            ? '<div class="card card-pad">' +
+                '<div class="t-h3 mb-12">自提信息</div>' +
+                '<div class="dl">' +
+                  '<span class="k">配送方式</span><span class="v">到店自提（免运费）</span>' +
+                  '<span class="k">门店地址</span><span class="v">' + BizUtil.escapeHtml(pickupShopInfo(o)) + '</span>' +
+                  '<span class="k">取货人</span><span class="v">' + BizUtil.escapeHtml(o.address.name || o.userId || '-') + '</span>' +
+                  '<span class="k">买家</span><span class="v">' + BizUtil.escapeHtml(o.userId || '-') + '</span>' +
+                  (o.readyAt ? '<span class="k">预计可取</span><span class="v">' + BizUtil.fmtTime(o.readyAt) + '</span>' : '') +
+                '</div>' +
+                (isReady(o)
+                  ? '<div class="notice notice-brand mt-12" style="display:flex;gap:12px;align-items:center">' +
+                      '<span style="font-size:20px">🔐</span>' +
+                      '<span class="t-sm">取货码 <b class="biz-code-big">' + BizUtil.escapeHtml(o.pickupCode || '----') + '</b>' +
+                      '<span class="t-tiny muted" style="display:block;margin-top:2px">用户到店出示，核对一致后「核码交付」</span></span>' +
+                    '</div>'
+                  : '<div class="notice mt-12" style="display:flex;gap:10px"><span>⏳</span>' +
+                      '<span class="t-sm">订单尚未进入可取状态，取货码将在「标记可取」后显示。</span></div>') +
+              '</div>'
+            : '<div class="card card-pad">' +
+                '<div class="t-h3 mb-12">收货信息</div>' +
+                '<div class="dl">' +
+                  '<span class="k">收货人</span><span class="v">' + BizUtil.escapeHtml(o.address.name || '-') + '</span>' +
+                  '<span class="k">电话</span><span class="v">' + BizUtil.escapeHtml(o.address.phone || '-') + '</span>' +
+                  '<span class="k">地区</span><span class="v">' + BizUtil.escapeHtml(o.address.region || '-') + '</span>' +
+                  '<span class="k">详细地址</span><span class="v">' + BizUtil.escapeHtml(o.address.detail || '-') + '</span>' +
+                  '<span class="k">买家</span><span class="v">' + BizUtil.escapeHtml(o.userId || '-') + '</span>' +
+                '</div>' +
+              '</div>') +
 
           /* 状态时间线 */
           '<div class="card card-pad">' +
@@ -110,13 +152,14 @@
               '<span><b>售后处理中</b>，请到「售后处理」页面跟进工单。</span></div>' : '') +
           '</div>' +
 
-          /* 物流轨迹 */
+          /* 物流轨迹（自提单：履约轨迹，无快递公司行） */
           ((o.tracks || []).length ? '<div class="card card-pad">' +
-            '<div class="t-h3 mb-12">物流轨迹</div>' +
+            '<div class="t-h3 mb-12">' + (pickup ? '履约轨迹' : '物流轨迹') + '</div>' +
             '<div class="stack gap-10">' +
-              '<div class="row gap-8"><span class="t-sm strong">' + BizUtil.escapeHtml(o.shipCompany || '快递') + '</span>' +
+              (pickup ? '' :
+                '<div class="row gap-8"><span class="t-sm strong">' + BizUtil.escapeHtml(o.shipCompany || '快递') + '</span>' +
                 '<span class="t-sm muted">' + BizUtil.escapeHtml(o.shipNo || '') + '</span>' +
-                '<button class="btn btn-ghost btn-xs" data-copy="' + BizUtil.escapeHtml(o.shipNo || '') + '">复制单号</button></div>' +
+                '<button class="btn btn-ghost btn-xs" data-copy="' + BizUtil.escapeHtml(o.shipNo || '') + '">复制单号</button></div>') +
               o.tracks.slice().reverse().map(function (t, i) {
                 return '<div class="row gap-12"><span class="step-dot ' + (i === 0 ? 'is-cur' : 'is-done') + '"></span>' +
                   '<span class="t-sm' + (i === 0 ? ' strong' : ' muted-2') + '">' + BizUtil.escapeHtml(t.d) +
@@ -134,7 +177,7 @@
               '<div class="price-row"><span class="k">商品（' + o.n + ' 张）</span>' +
                 '<span class="v">¥' + BizUtil.fmtFen(o.subtotal) + '</span></div>' +
               '<div class="price-row"><span class="k">运费</span>' +
-                '<span class="v">' + (o.shipping === 0 ? '包邮' : '¥' + BizUtil.fmtFen(o.shipping)) + '</span></div>' +
+                '<span class="v">' + (pickup ? '免运费（自提）' : (o.shipping === 0 ? '包邮' : '¥' + BizUtil.fmtFen(o.shipping))) + '</span></div>' +
               (o.discount ? '<div class="price-row is-discount"><span class="k">' +
                 (o.couponType === 'freeship' ? '免运费券' : '通用券') + '</span>' +
                 '<span class="v">-¥' + BizUtil.fmtFen(o.discount) + '</span></div>' : '') +
@@ -155,6 +198,7 @@
   function actionsHtml(o) {
     var busy = '<div class="notice" style="display:flex;gap:10px"><span>ℹ️</span>' +
       '<span class="t-sm">等待用户完成支付，付款后自动进入待接单。</span></div>';
+    var pickup = isPickup(o);
     switch (o.status) {
       case 'pending': return busy;
       case 'paid':
@@ -164,6 +208,11 @@
         return '<button class="btn btn-primary btn-block" data-act="make">开始制作</button>' +
           '<p class="t-tiny muted center mt-8">接单后进入印刷 / 模切工序</p>';
       case 'making':
+        /* 2026-10-12 自提增量：自提单发货弹层不出现，改为「标记可取」 */
+        if (pickup) {
+          return '<button class="btn btn-primary btn-block" data-act="ready">标记可取</button>' +
+            '<p class="t-tiny muted center mt-8">制作完成并包装后标记，用户即可到店凭码自提</p>';
+        }
         return '<div class="biz-ship-form stack gap-10">' +
             '<div class="full"><label class="t-sm strong">物流公司</label>' +
               '<select class="select mt-4" id="f-company">' +
@@ -174,17 +223,90 @@
             '<button class="btn btn-primary btn-block mt-4" data-act="ship">确认发货</button>' +
           '</div>';
       case 'shipped':
+        /* 自提单：待自提，展示取货码 + 核码交付 */
+        if (pickup) {
+          return '<div class="notice notice-brand" style="display:flex;gap:10px"><span>🏪</span>' +
+              '<span class="t-sm"><b>已制作完成，待到店自提</b><br>取货码 <b class="biz-code-big">' +
+              BizUtil.escapeHtml(o.pickupCode || '----') + '</b></span></div>' +
+            '<button class="btn btn-primary btn-block mt-8" data-act="handover">核码交付</button>' +
+            '<p class="t-tiny muted center mt-8">输入用户出示的 4 位取货码，核对一致即完成</p>';
+        }
         return '<div class="notice notice-sky" style="display:flex;gap:10px;background:var(--sky-soft);border-color:#C9DFF1;color:#2F6E9F">' +
             '<span>🚚</span><span class="t-sm"><b>已发货</b><br>用户签收后订单完成，货款自动入账。</span></div>' +
           '<button class="btn btn-outline btn-block mt-8" data-act="complete">标记完成（用户已签收）</button>';
       case 'done':
         return '<div class="notice notice-mint" style="display:flex;gap:10px"><span>✅</span>' +
-          '<span class="t-sm"><b>订单已完成</b><br>货款 ¥' + BizUtil.fmtFen(o.amount) + ' 已入账，可在收入统计查看。</span></div>';
+          '<span class="t-sm"><b>订单已完成</b>' + (pickup ? '（已核码交付）<br>' : '<br>') +
+          '货款 ¥' + BizUtil.fmtFen(o.amount) + ' 已入账，可在收入统计查看。</span></div>';
       case 'aftersale':
         return '<a class="btn btn-primary btn-block" href="aftersales.html">查看售后工单</a>';
       default:
         return busy;
     }
+  }
+
+  /* 核码交付弹层（2026-10-12 自提增量）：输入 4 位取货码，服务端权威校验 */
+  function openHandoverModal() {
+    var o = order;
+    if (!o || !isPickup(o)) return;
+    var mask = document.createElement('div');
+    mask.className = 'backdrop';
+    mask.innerHTML =
+      '<div class="modal" style="max-width:400px">' +
+        '<div class="modal-head"><b>核码交付 · ' + o.id + '</b>' +
+          '<button class="btn btn-ghost btn-xs" data-close>✕</button></div>' +
+        '<div class="modal-body stack gap-14">' +
+          '<div class="center t-sm muted">请输入用户出示的 <b>4 位取货码</b></div>' +
+          '<input class="input biz-code-input" id="f-code" inputmode="numeric" maxlength="4" ' +
+            'placeholder="••••" autocomplete="off">' +
+          '<div class="err center" id="code-err" style="display:none"></div>' +
+          '<div class="t-tiny muted center">本店取货码：<b class="biz-code-big">' +
+            BizUtil.escapeHtml(o.pickupCode || '----') + '</b><br>核对一致后点击确认，货款将入账</div>' +
+        '</div>' +
+        '<div class="modal-foot">' +
+          '<button class="btn btn-ghost" data-close>取消</button>' +
+          '<button class="btn btn-primary" id="btn-handover">确认交付</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(mask);
+    var input = mask.querySelector('#f-code');
+    var err = mask.querySelector('#code-err');
+    input.focus();
+
+    function close() { mask.remove(); }
+    mask.addEventListener('click', function (e) {
+      if (e.target === mask || e.target.closest('[data-close]')) close();
+    });
+    input.addEventListener('input', function () {
+      input.value = input.value.replace(/\D/g, '').slice(0, 4);
+      err.style.display = 'none';
+    });
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+
+    function submit() {
+      var code = input.value.trim();
+      if (!/^\d{4}$/.test(code)) {
+        err.textContent = '请输入 4 位数字取货码';
+        err.style.display = 'block';
+        return;
+      }
+      var btn = mask.querySelector('#btn-handover');
+      btn.disabled = true; btn.textContent = '核验中…';
+      Biz.handoverOrder(o.id, code).then(function (r) {
+        if (r && r.ok) {
+          close();
+          BizUtil.toast('核码通过，订单已完成，货款已入账', 'ok');
+        } else {
+          err.textContent = (r && r.msg) || '取货码不正确';
+          err.style.display = 'block';
+          btn.disabled = false; btn.textContent = '确认交付';
+        }
+      }).catch(function (e2) {
+        BizUtil.toast('云端连接失败：' + (e2.message || e2), 'err');
+        btn.disabled = false; btn.textContent = '确认交付';
+      });
+    }
+    mask.querySelector('#btn-handover').addEventListener('click', submit);
   }
 
   /* 动作点击（事件委托） */
@@ -197,6 +319,8 @@
     var p;
     if (act === 'accept') p = Biz.acceptOrder(orderId);
     else if (act === 'make') p = Biz.makeOrder(orderId);
+    else if (act === 'ready') p = Biz.readyOrder(orderId);
+    else if (act === 'handover') { btn.disabled = false; openHandoverModal(); return; }
     else if (act === 'ship') {
       var c = $('#f-company'), n = $('#f-no');
       p = Biz.shipOrder(orderId, c ? c.value : '', n ? n.value.trim() : '');

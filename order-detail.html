@@ -9,6 +9,21 @@
 <style>
   .od-item { display: flex; gap: 14px; padding: 12px 0; align-items: center; }
   .od-item + .od-item { border-top: 1px solid var(--line); }
+  /* 自提单取货码卡 */
+  .od-pickup-code {
+    font-size: 40px; font-weight: 800; letter-spacing: 10px; text-indent: 10px; line-height: 1.15;
+    color: var(--brand-deep); font-variant-numeric: tabular-nums; text-align: center;
+  }
+  .od-pickup-box {
+    margin-top: 12px; padding: 18px 16px 14px; border-radius: var(--r-md);
+    border: 2px dashed var(--brand); background: var(--brand-soft); text-align: center;
+  }
+  .od-pickup-sub { font-size: 12px; color: var(--ink-3); margin-top: 6px; text-align: center; }
+  .od-pickup-store {
+    margin-top: 10px; padding: 10px 14px; border-radius: var(--r-sm);
+    background: rgba(255, 255, 255, .7); font-size: 13px; line-height: 1.7; color: var(--ink-2);
+  }
+  .od-pickup-store b { color: var(--ink); }
 </style>
 </head>
 <body>
@@ -33,7 +48,7 @@
   var orderId = UI.param('id');
   var order = null;
 
-  var FLOW = [
+  var FLOW_EXPRESS = [
     { k: 'pending',  t: '待支付', d: '提交订单，等待付款', f: 'createdAt' },
     { k: 'paid',     t: '已支付', d: '等待供应商接单',     f: 'paidAt' },
     { k: 'accepted', t: '已接单', d: '供应商确认排产',     f: 'acceptedAt' },
@@ -41,14 +56,34 @@
     { k: 'shipped',  t: '已发货', d: '快递已揽收',         f: 'shippedAt' },
     { k: 'done',     t: '已完成', d: '已签收',             f: 'doneAt' }
   ];
+  /* 自提单时间线：shipped 节点语境为「已制作完成·待到店自提」 */
+  var FLOW_PICKUP = [
+    { k: 'pending',  t: '待支付', d: '提交订单，等待付款', f: 'createdAt' },
+    { k: 'paid',     t: '已支付', d: '等待门店接单',       f: 'paidAt' },
+    { k: 'accepted', t: '已接单', d: '门店确认排产',       f: 'acceptedAt' },
+    { k: 'making',   t: '制作中', d: '印刷模切进行中',     f: 'madeAt' },
+    { k: 'shipped',  t: '已制作完成', d: '待到店自提',     f: 'shippedAt' },
+    { k: 'done',     t: '已完成', d: '已凭取货码领取',     f: 'doneAt' }
+  ];
   var flowIdx = { pending: 0, paid: 1, accepted: 2, making: 3, shipped: 4, done: 5, aftersale: 5 };
+
+  function isPickup(o) { return !!(o && o.deliveryMethod === 'pickup'); }
+  /* 自提单取货码兜底：本地单缺字段时按订单号现算（与 SQL 规则一致） */
+  function pickupCodeOf(o) {
+    if (o.pickupCode) return o.pickupCode;
+    return Cloud.pickupCodeOf(o.id);
+  }
+  function readyAtOf(o) {
+    if (o.readyAt) return o.readyAt;
+    if (o.paidAt) return o.paidAt + 2 * 3600 * 1000;
+    return (o.createdAt || Date.now()) + 2 * 3600 * 1000;
+  }
 
   function loadOrder() {
     order = Store.orders.get(orderId);
     if (!order && Cloud.ok()) order = Cloud.get(orderId);
     return !!order;
   }
-  if (!loadOrder()) { location.href = 'orders.html'; return; }
 
   function timeline() {
     if (order.status === 'closed') {
@@ -56,6 +91,7 @@
         '<span class="notice-icon">' + UI.icon('alert') + '</span>' +
         '<span><b>订单已关闭</b><br>超过支付时限未完成付款，可以重新下单。</span></div>';
     }
+    var FLOW = isPickup(order) ? FLOW_PICKUP : FLOW_EXPRESS;
     var cur = flowIdx[order.status];
     return '<div class="timeline">' + FLOW.map(function (s, i) {
       var cls = i < cur ? ' is-done' : (i === cur ? ' is-current' : '');
@@ -75,6 +111,11 @@
       return '<a class="btn btn-primary btn-block" href="payment.html?id=' + order.id + '">去支付</a>' +
         '<button class="btn btn-ghost btn-block mt-8" data-cancel>取消订单</button>';
     }
+    if (order.status === 'shipped' && isPickup(order)) {
+      return '<div class="notice notice-mint" style="display:flex;gap:10px">' +
+        '<span class="notice-icon">' + UI.icon('check') + '</span>' +
+        '<span><b>制作完成，可以取货了</b><br>凭页面上的取货码到门店领取。</span></div>';
+    }
     if (order.status === 'shipped') {
       return '<a class="btn btn-primary btn-block" href="logistics.html?id=' + order.id + '">查看物流</a>' +
         '<button class="btn btn-ghost btn-block mt-8" data-aftersale>申请售后</button>';
@@ -93,7 +134,26 @@
     }
     return '<div class="notice notice-mint" style="display:flex;gap:10px">' +
       '<span class="notice-icon">' + UI.icon('info') + '</span>' +
-      '<span>正在排产，完成后会发货。</span></div>';
+      '<span>' + (isPickup(order) ? '正在排产，完成后即可凭取货码到店领取。' : '正在排产，完成后会发货。') + '</span></div>';
+  }
+
+  /* 自提单取货码卡（代替物流区块） */
+  function pickupCard() {
+    var store = (Cloud.ok() && Cloud.pickupStore()) || Cloud.demoStore ||
+      { name: '上海徐汇工作室', address: '上海市徐汇区漕溪北路 100 号 1 层', openHours: '09:00 - 20:00' };
+    var rt = new Date(readyAtOf(order));
+    var readyTxt = (rt.getMonth() + 1) + '-' + rt.getDate() + ' ' + rt.getHours() + ':' + (rt.getMinutes() < 10 ? '0' : '') + rt.getMinutes();
+    return '<div class="card card-pad mt-16">' +
+      '<div class="row between"><span class="t-h3">到店自提</span>' +
+      '<span class="pill pill-brand">免运费</span></div>' +
+      '<div class="od-pickup-box">' +
+        '<div class="t-tiny strong muted" style="letter-spacing:3px">取货码</div>' +
+        '<div class="od-pickup-code">' + pickupCodeOf(order) + '</div>' +
+        '<div class="od-pickup-sub">向店员出示此码领取 · 预计可取 ' + readyTxt + '</div>' +
+        '<div class="od-pickup-store"><b>' + UI.escapeHtml(store.name) + '</b><br>' +
+          UI.escapeHtml(store.address) + ' · 营业时间 ' + UI.escapeHtml(store.openHours) + '</div>' +
+      '</div>' +
+    '</div>';
   }
 
   function render() {
@@ -107,7 +167,8 @@
       '<div class="card card-pad">' +
         '<div class="row between">' +
           '<div><div class="t-h2">' + UI.escapeHtml(Store.STATUS_TEXT[order.status] || order.status) + '</div>' +
-          '<div class="t-tiny muted mt-4">' + order.id + ' · ' + Store.util.fmtTime(order.createdAt) + '</div></div>' +
+          '<div class="t-tiny muted mt-4">' + order.id + ' · ' + Store.util.fmtTime(order.createdAt) +
+          (isPickup(order) ? ' · <span class="pill pill-brand">到店自提</span>' : '') + '</div></div>' +
           UI.statusPill(order.status) +
         '</div>' +
         '<div class="divider"></div>' +
@@ -123,13 +184,18 @@
           UI.escapeHtml(order.logistics.tracks[0].d) + '</span></div>' +
       '</div>' : '') +
 
+      (isPickup(order) ? pickupCard() : '') +
+
       '<div class="card card-pad mt-16">' +
-        '<span class="t-h3">收货信息</span>' +
+        (isPickup(order)
+          ? '<span class="t-h3">取货信息</span>' +
+            '<div class="mt-8"><div class="t-sm muted">自提订单无需收货地址，凭取货码到门店领取。</div></div>'
+          : '<span class="t-h3">收货信息</span>' +
         '<div class="mt-8">' +
           '<div class="t-sm strong">' + UI.escapeHtml(order.address.name) + ' ' +
             '<span class="muted">' + UI.escapeHtml(order.address.phone) + '</span></div>' +
           '<div class="t-sm muted mt-4">' + UI.escapeHtml(order.address.region + ' ' + order.address.detail) + '</div>' +
-        '</div>' +
+        '</div>') +
       '</div>' +
 
       '<div class="card card-pad mt-16">' +
@@ -152,7 +218,7 @@
           '<div class="price-row"><span class="k">商品小计（共 ' + order.n + ' 张）</span>' +
           '<span class="v">' + Pricing.fmtYuan(order.subtotal || Pricing.quote(order.n).subtotal) + '</span></div>' +
           '<div class="price-row mt-8"><span class="k">运费</span>' +
-          '<span class="v">' + ((order.shipping || 0) === 0 ? '包邮' : Pricing.fmtYuan(order.shipping)) + '</span></div>' +
+          '<span class="v">' + (isPickup(order) ? '免运费（自提）' : ((order.shipping || 0) === 0 ? '包邮' : Pricing.fmtYuan(order.shipping))) + '</span></div>' +
           (order.couponDiscount ? '<div class="price-row mt-8 is-discount">' +
             '<span class="k">' + (order.couponType === 'freeship' ? '免运费券' : '通用券') + '</span>' +
             '<span class="v">' + Pricing.fmtSigned(-order.couponDiscount) + '</span></div>' : '') +
@@ -193,11 +259,30 @@
     });
   }
 
-  render();
-  /* 云端实时刷新（供应商接单/制作/发货后自动更新） */
+  /* 首次进入：云端单可能尚未拉到，subscribe 等首次数据；真不存在才 redirect（本地路径不变） */
+  var bootDone = false;
+  function boot() {
+    if (bootDone) return;
+    if (!loadOrder()) {
+      if (Cloud.ok() && !cloudFetched) return; /* 云端首拉未完成，再等等 */
+      location.href = 'orders.html';
+      return;
+    }
+    bootDone = true;
+    render();
+    if (Cloud.ok()) {
+      var lp = $('#live-pill'); if (lp) lp.hidden = false;
+    }
+  }
+  var cloudFetched = false;
   if (Cloud.ok()) {
-    $('#live-pill').hidden = false;
-    Cloud.subscribe(function () { render(); });
+    Cloud.subscribe(function () {
+      cloudFetched = true;
+      if (!bootDone) boot(); else render();
+    });
+    setTimeout(function () { cloudFetched = true; if (!bootDone) boot(); }, 4000);
+  } else {
+    boot();
   }
 })();
 </script>

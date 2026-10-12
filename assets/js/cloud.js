@@ -8,6 +8,7 @@
 
   var db = null, channel = null, listeners = [], fetchTimer = null, pollTimer = null, fetching = false;
   var state = { orders: [], items: [], tracks: [], aftersales: [] };
+  var supplierCache = null; /* 自提门店缓存（biz_suppliers is_default 那家） */
   var available = false;
 
   function cfgOk() {
@@ -22,6 +23,26 @@
   }
 
   function fen2yuan(v) { return (v || 0) / 100; }
+
+  /* ---------- 自提增量（2026-10-12 · FULFILLMENT-PRD §2.1-2.3） ---------- */
+
+  /* 本地回退用演示门店 = biz_suppliers 默认供应商 SUP-SH01（与 supabase/biz-schema.sql 种子一致） */
+  var DEMO_PICKUP_STORE = {
+    id: 'SUP-SH01', name: '上海徐汇工作室',
+    address: '上海市徐汇区漕溪北路 100 号 1 层',
+    openHours: '09:00 - 20:00'
+  };
+
+  /* 取货码：订单号数字段哈希取 4 位 —— 与 biz_checkout SQL 规则完全一致（djb2 变体） */
+  function pickupCodeOf(orderId) {
+    var s = (orderId || '').replace(/\D/g, '');
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 1000000007;
+    return ('0000' + (h % 10000)).slice(-4);
+  }
+
+  /* 自提单预计可取时刻（演示口径：下单 + 2 小时，与 SQL ready_at 规则一致） */
+  function readyAtFrom(ts) { return ts + 2 * 3600 * 1000; }
 
   /* snake_case 行 → 用户页形状（含 items / logistics 组装） */
   function mapOrder(r) {
@@ -44,6 +65,10 @@
       couponDiscount: fen2yuan(r.discount),
       address: r.address || {},
       note: r.note,
+      /* 自提增量字段：deliveryMethod（express 老数据兜底）/ pickupCode / readyAt */
+      deliveryMethod: r.delivery_method || 'express',
+      pickupCode: r.pickup_code || null,
+      readyAt: r.ready_at ? +new Date(r.ready_at) : null,
       paidAt: r.paid_at ? +new Date(r.paid_at) : null,
       acceptedAt: r.accepted_at ? +new Date(r.accepted_at) : null,
       madeAt: r.made_at ? +new Date(r.made_at) : null,
@@ -122,21 +147,40 @@
       return r ? mapOrder(r) : null;
     },
 
-    /** 结算下单（服务端权威计价 + 发号 + 按地址派单） */
+    /** 结算下单（服务端权威计价 + 发号 + 按地址派单；自提增量：p_delivery_method） */
     checkout: function (o) {
       return rpc('biz_checkout', {
         p_user_id: o.userId || '',
         p_items: o.items.map(function (it) {
           return { name: it.name, thumb: it.thumb || '', copies: it.copies };
         }),
-        p_address: { name: o.address.name, phone: o.address.phone, region: o.address.region, detail: o.address.detail },
+        p_address: (o.deliveryMethod === 'pickup')
+          ? {} /* 自提单免地址：服务端按默认供应商（=自提门店）派单 */
+          : { name: o.address.name, phone: o.address.phone, region: o.address.region, detail: o.address.detail },
         p_coupon_type: o.couponType || null,
         p_note: o.note || '',
-        p_amount_expect: Math.round((o.amountExpect || 0) * 100)
+        p_amount_expect: Math.round((o.amountExpect || 0) * 100),
+        p_delivery_method: o.deliveryMethod || 'express'
       }).then(function (r) {
         refetch();
-        return r; /* {ok, id, amount} */
+        return r; /* {ok, id, amount, delivery_method, pickup_code, ready_at} */
       });
+    },
+
+    /** 自提门店（biz_suppliers 里 is_default 那家）；云端不可用返回 null，页面回退到 Cloud.pickupStore() */
+    pickupStore: function () {
+      if (!init()) return null;
+      if (supplierCache) return supplierCache;
+      db.from('biz_suppliers').select('id,name,address,open_hours')
+        .eq('is_default', true).limit(1).then(function (res) {
+          if (!res.error && res.data && res.data.length) {
+            var s = res.data[0];
+            /* snake_case → camelCase 归一（页面统一读 openHours） */
+            supplierCache = { id: s.id, name: s.name, address: s.address, openHours: s.open_hours || s.openHours || '' };
+            listeners.forEach(function (fn) { try { fn(Cloud.list()); } catch (e) { console.error(e); } });
+          }
+        }).catch(function (e) { console.error('cloud pickupStore', e); });
+      return null;
     },
 
     /** 支付（pending → paid） */
@@ -157,6 +201,17 @@
 
     /** 手动拉一次（进入页面时调用） */
     refresh: fetchState,
+
+    /* ---- 自提增量工具（页面共用；本地双轨两端一致） ---- */
+
+    /** 演示门店（本地回退固定值，云端读 biz_suppliers；名字/地址与 schema 种子一致） */
+    demoStore: DEMO_PICKUP_STORE,
+
+    /** 取货码 4 位（与 biz_checkout SQL 规则一致，本地回退模拟用） */
+    pickupCodeOf: pickupCodeOf,
+
+    /** 预计可取时刻（演示口径：下单 + 2 小时） */
+    readyAtFrom: readyAtFrom,
 
     _state: function () { return state; }
   };

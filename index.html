@@ -74,7 +74,7 @@
     <div class="brand-inner">
       <div class="brand-logo"><span class="logo" id="b-logo"></span><span>SOD</span></div>
       <h1 class="brand-lead">把你喜欢的东西，<br>变成能贴出去的实体</h1>
-      <p class="brand-sub">Sticker on Demand —— 一张起订的贴纸按需定制平台。这是本项目的工作区门户：可以从这里进入线上可交互演示，或浏览完整的用户网站原型。</p>
+      <p class="brand-sub">Sticker on Demand —— 一张起订的贴纸按需定制平台。这是本项目的工作区门户：从线上定制下单开始，走完「下单 → 制作 → 自提 / 收货」的云端闭环演示。</p>
       <div class="brand-tags">
         <span class="brand-tag">AI 抠图</span>
         <span class="brand-tag">一张起订</span>
@@ -88,8 +88,9 @@
   <main class="portal-side">
     <div class="portal-card">
       <h2>选择要进入的部分</h2>
-      <p class="sub">三部分内容都在本仓库，随时切换</p>
+      <p class="sub">线上闭环主推 · 供应端工作台随时切换</p>
 
+      <!-- 2026-10-12 自提增量：漫展 demo/ 入口摘下（保留代码，切换 data-off 可恢复）
       <a class="entry entry-hot" href="demo/">
         <span class="entry-icon" aria-hidden="true">🎬</span>
         <span class="entry-body">
@@ -97,13 +98,13 @@
           <p>Phase 0 活动场景全流程演示：扫码 → 授权获客 → 下单支付 → 排队打印 → 凭码取件。GitHub Pages + Supabase 云端同步，任何手机用流量即可参与。</p>
         </span>
         <span class="entry-arrow" aria-hidden="true">→</span>
-      </a>
+      </a> -->
 
-      <a class="entry entry-site" href="userstudio.html">
+      <a class="entry entry-hot" href="userstudio.html">
         <span class="entry-icon" aria-hidden="true">🛍️</span>
         <span class="entry-body">
-          <h3>用户网站原型</h3>
-          <p>完整的 C 端产品原型：登录 → 首页 → AI 编辑器 → 结算 → 支付 → 订单履约，云端订单与供应端实时联动。</p>
+          <h3>线上定制下单 <span class="pill-new">全链路演示</span></h3>
+          <p>线上闭环全流程：登录 → AI 编辑器 → 结算下单（自提 / 快递）→ 支付取货码 → 供应端接单制作 → 发货 / 到店自提，云端订单全程实时联动。</p>
         </span>
         <span class="entry-arrow" aria-hidden="true">→</span>
       </a>
@@ -112,7 +113,16 @@
         <span class="entry-icon" aria-hidden="true">🏭</span>
         <span class="entry-body">
           <h3>商家工作台 <span class="pill-new">供应端</span></h3>
-          <p>接单 → 制作 → 发货履约全流程：订单队列实时派单、耗材预警、收入统计、售后处理，与用户端云端联动。</p>
+          <p>接单 → 制作 → 发货 / 自提交付全流程：订单队列实时派单、耗材预警、收入统计、售后处理，与用户端云端联动。</p>
+        </span>
+        <span class="entry-arrow" aria-hidden="true">→</span>
+      </a>
+
+      <a class="entry entry-site" href="admin/">
+        <span class="entry-icon" aria-hidden="true">📊</span>
+        <span class="entry-body">
+          <h3>平台看板 <span class="pill-new">只读</span></h3>
+          <p>平台发单视角：今日订单 / 待处理 / GMV 统计 + 订单实时流 + 供应商总览，Realtime 实时刷新。</p>
         </span>
         <span class="entry-arrow" aria-hidden="true">→</span>
       </a>

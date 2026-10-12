@@ -56,8 +56,8 @@
 
     if (coupon && isValid(coupon, n)) {
       if (coupon.type === COUPON_FREESHIP) {
+        /* 免运费券：运费照记、券抵等额 5 元（与 biz_price_total SQL 口径一致，避免双扣） */
         discount += ship;
-        ship = 0;
         lines.push({ key: '免运费券', value: -round2(shippingOf(n)) });
       } else {
         discount += COUPON_AMOUNT;

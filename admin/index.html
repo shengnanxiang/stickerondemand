@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOD · 平台看板</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+/* ============================================================
+   SOD 平台看板 · 极简只读单页
+   依赖：../demo/vendor/supabase.min.js + ../demo/config.js
+   视觉：项目奶油暖色体系（token 内联，独立可运行，不依赖 app.css/studio.css）
+   ============================================================ */
+:root {
+  --cream-50:  #FFFCF6;
+  --cream-100: #FDF7EE;
+  --cream-200: #F8EFE3;
+  --cream-300: #F1E5D6;
+  --line:        #ECE1D4;
+  --line-strong: #DCCDBA;
+  --ink:   #302A24;
+  --ink-2: #5E554C;
+  --ink-3: #8D8277;
+  --ink-4: #B5AA9E;
+  --brand:      #FF7A45;
+  --brand-dark: #EF5E29;
+  --brand-deep: #C74A1B;
+  --brand-soft: #FFEDE3;
+  --mint:      #45B492;
+  --mint-soft: #E4F5EF;
+  --sky:       #5B9FD6;
+  --sky-soft:  #E7F1FA;
+  --grape:     #9C7CE0;
+  --grape-soft:#F1EBFC;
+  --sun:       #EFB33F;
+  --sun-soft:  #FDF2DC;
+  --danger:      #DE5F49;
+  --danger-soft: #FCEAE6;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-full: 999px;
+  --sh-1: 0 1px 2px rgba(94,66,40,.05), 0 2px 6px rgba(94,66,40,.04);
+  --sh-2: 0 4px 14px rgba(94,66,40,.07), 0 1px 3px rgba(94,66,40,.05);
+  --ease: cubic-bezier(.22,.68,.32,1);
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--cream-100); color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+               "Hiragino Sans GB", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, p, ul, ol { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+img, svg { display: block; max-width: 100%; }
+
+.wrap { max-width: 1440px; margin: 0 auto; padding: 0 28px 40px; }
+
+/* ---------- 顶栏 ---------- */
+.topbar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 0 20px;
+}
+.topbar .logo {
+  width: 40px; height: 40px; border-radius: 13px; flex: none;
+  background: linear-gradient(140deg, #FF9257, #EC5A24);
+  display: grid; place-items: center; color: #fff;
+  font-size: 15px; font-weight: 800; letter-spacing: .5px;
+  box-shadow: 0 6px 18px rgba(255,122,69,.26);
+}
+.topbar h1 { font-size: 20px; font-weight: 800; letter-spacing: .3px; }
+.topbar .sub { font-size: 12.5px; color: var(--ink-3); margin-top: 1px; }
+.topbar .spacer { flex: 1; }
+.conn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 13px; border-radius: var(--r-full);
+  font-size: 12px; font-weight: 700; background: #fff; border: 1.5px solid var(--line);
+  color: var(--ink-3); white-space: nowrap;
+}
+.conn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-4); flex: none; }
+.conn.live { color: var(--mint); border-color: var(--mint-soft); background: var(--mint-soft); }
+.conn.live .dot { background: var(--mint); box-shadow: 0 0 0 3px rgba(69,180,146,.18); }
+.conn.poll { color: var(--sun); border-color: var(--sun-soft); background: var(--sun-soft); }
+.conn.poll .dot { background: var(--sun); }
+.conn.off { color: var(--danger); border-color: var(--danger-soft); background: var(--danger-soft); }
+.conn.off .dot { background: var(--danger); }
+
+/* ---------- 云端未配置提示 ---------- */
+.setup-banner {
+  display: none; margin: 0 0 18px; padding: 18px 22px;
+  background: #fff; border: 2px solid var(--brand); border-radius: var(--r-md);
+  font-size: 13.5px; line-height: 1.9; color: var(--ink);
+  box-shadow: var(--sh-2);
+}
+.setup-banner.show { display: block; }
+.setup-banner b { color: var(--brand-deep); }
+
+/* ---------- 统计条 ---------- */
+.stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px;
+}
+.stat {
+  background: #fff; border: 1.5px solid var(--line); border-radius: var(--r-lg);
+  padding: 18px 20px 16px; box-shadow: var(--sh-1);
+  transition: border-color .16s var(--ease), box-shadow .16s var(--ease);
+}
+.stat:hover { border-color: var(--line-strong); box-shadow: var(--sh-2); }
+.stat .label { font-size: 12.5px; font-weight: 700; color: var(--ink-3); letter-spacing: .5px; }
+.stat .value { font-size: 30px; font-weight: 800; letter-spacing: -.5px; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+.stat .value.small { font-size: 26px; }
+.stat .hint { font-size: 12px; color: var(--ink-4); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.stat.gmv .value { color: var(--brand-dark); }
+
+.mini-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 9px; border-radius: var(--r-full); font-size: 11.5px; font-weight: 700;
+}
+.mini-pill.pickup { background: var(--brand-soft); color: var(--brand-dark); }
+.mini-pill.express { background: var(--sky-soft); color: var(--sky); }
+
+/* ---------- 看板主体 ---------- */
+.board { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start; }
+.panel {
+  background: #fff; border: 1.5px solid var(--line); border-radius: var(--r-lg);
+  box-shadow: var(--sh-1); overflow: hidden;
+}
+.panel-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 20px; border-bottom: 1.5px solid var(--line);
+  background: var(--cream-50);
+}
+.panel-head h2 { font-size: 15px; font-weight: 800; letter-spacing: .3px; }
+.panel-head .count {
+  padding: 1px 10px; border-radius: var(--r-full);
+  background: var(--cream-200); color: var(--ink-2);
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.panel-head .tail { margin-left: auto; font-size: 12px; color: var(--ink-4); }
+
+/* ---------- 订单流 ---------- */
+.order-list { max-height: 720px; overflow-y: auto; }
+.order-card { border-bottom: 1px solid var(--line); }
+.order-card:last-child { border-bottom: 0; }
+.order-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 13px 20px; cursor: pointer; user-select: none;
+  transition: background .14s var(--ease);
+}
+.order-row:hover { background: var(--cream-50); }
+.order-row .no { font-weight: 800; font-size: 13.5px; letter-spacing: .2px; font-variant-numeric: tabular-nums; }
+.order-row .grow { flex: 1; min-width: 60px; }
+.order-row .meta { font-size: 12px; color: var(--ink-3); }
+.order-row .amount { font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; }
+.order-row .caret { color: var(--ink-4); font-size: 11px; transition: transform .16s var(--ease); }
+.order-card.open .caret { transform: rotate(90deg); }
+
+.pill {
+  display: inline-block; padding: 2px 10px; border-radius: var(--r-full);
+  font-size: 11.5px; font-weight: 700; letter-spacing: .3px; white-space: nowrap;
+}
+.pill.dm-pickup  { background: var(--brand-soft); color: var(--brand-dark); }
+.pill.dm-express { background: var(--sky-soft); color: var(--sky); }
+.pill.st-pending   { background: var(--cream-200); color: var(--ink-2); }
+.pill.st-paid      { background: var(--sun-soft); color: var(--sun); }
+.pill.st-accepted  { background: var(--sky-soft); color: var(--sky); }
+.pill.st-making    { background: var(--brand-soft); color: var(--brand-dark); }
+.pill.st-shipped   { background: var(--grape-soft); color: var(--grape); }
+.pill.st-ready     { background: var(--grape-soft); color: var(--grape); }
+.pill.st-done      { background: var(--mint-soft); color: var(--mint); }
+.pill.st-closed    { background: var(--cream-200); color: var(--ink-4); }
+.pill.st-aftersale { background: var(--danger-soft); color: var(--danger); }
+
+.order-detail { display: none; padding: 4px 20px 18px; background: var(--cream-50); }
+.order-card.open .order-detail { display: block; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px; }
+.detail-block h4 {
+  font-size: 11.5px; font-weight: 700; color: var(--ink-4);
+  letter-spacing: 1px; margin-bottom: 6px;
+}
+.detail-block .body { font-size: 13px; color: var(--ink-2); line-height: 1.75; }
+.pickup-code-line {
+  display: inline-flex; align-items: baseline; gap: 8px;
+  padding: 4px 14px; border-radius: var(--r-sm);
+  background: var(--brand-soft); color: var(--brand-deep);
+}
+.pickup-code-line .code { font-size: 24px; font-weight: 800; letter-spacing: 6px; font-variant-numeric: tabular-nums; }
+.item-line { display: flex; align-items: center; gap: 10px; padding: 3px 0; }
+.item-line img {
+  width: 34px; height: 34px; border-radius: 8px; flex: none;
+  border: 1px solid var(--line); background: #fff; object-fit: cover;
+}
+.item-line .ph {
+  width: 34px; height: 34px; border-radius: 8px; flex: none;
+  border: 1px dashed var(--line-strong); display: grid; place-items: center;
+  color: var(--ink-4); font-size: 14px; background: #fff;
+}
+.item-line .nm { flex: 1; font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-line .cp { font-size: 12px; color: var(--ink-4); font-variant-numeric: tabular-nums; }
+.empty { padding: 46px 20px; text-align: center; color: var(--ink-4); font-size: 13px; }
+.empty .big { font-size: 30px; margin-bottom: 8px; }
+
+/* ---------- 供应商区 ---------- */
+.sup-list { padding: 6px 0; }
+.sup-card { padding: 14px 20px; border-bottom: 1px solid var(--line); }
+.sup-card:last-child { border-bottom: 0; }
+.sup-name { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; }
+.sup-name .tag-default {
+  padding: 1px 8px; border-radius: var(--r-full);
+  background: var(--mint-soft); color: var(--mint); font-size: 10.5px; font-weight: 700;
+}
+.sup-rows { margin-top: 7px; font-size: 12.5px; color: var(--ink-3); line-height: 1.85; }
+.sup-rows b { color: var(--ink-2); font-weight: 700; }
+.sup-rows .bal { color: var(--brand-dark); font-weight: 800; font-variant-numeric: tabular-nums; }
+
+.foot { margin-top: 26px; text-align: center; font-size: 12px; color: var(--ink-4); line-height: 1.8; }
+.foot a { color: var(--brand-dark); text-decoration: none; }
+
+/* ---------- 响应式兜底 ---------- */
+@media (max-width: 1080px) {
+  .board { grid-template-columns: 1fr; }
+}
+@media (max-width: 860px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .wrap { padding: 0 16px 32px; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .topbar .sub { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topbar">
+    <span class="logo">SOD</span>
+    <div>
+      <h1>平台看板</h1>
+      <p class="sub">Sticker on Demand · 发单视角 · 只读实时视图（写入请前往用户端 / 商家工作台）</p>
+    </div>
+    <span class="spacer"></span>
+    <span class="conn off" id="conn"><span class="dot"></span><span id="conn-text">连接中…</span></span>
+  </header>
+
+  <div class="setup-banner" id="setup-banner">
+    <b>⚠️ 看板依赖云端数据，请检查 Supabase 配置</b><br>
+    1. 在 Supabase SQL Editor 执行 <b>supabase/biz-schema.sql</b>（含自提增量迁移段）<br>
+    2. 确认 <b>demo/config.js</b> 已填写 SUPABASE_URL / SUPABASE_ANON_KEY，并保证 <b>demo/vendor/supabase.min.js</b> 可访问
+  </div>
+
+  <section class="stats" aria-label="平台统计">
+    <div class="stat">
+      <div class="label">今日订单</div>
+      <div class="value" id="st-today">–</div>
+      <div class="hint"><span class="mini-pill pickup">自提 <b id="st-today-pickup">0</b></span><span class="mini-pill express">快递 <b id="st-today-express">0</b></span></div>
+    </div>
+    <div class="stat">
+      <div class="label">待处理订单</div>
+      <div class="value" id="st-pending">–</div>
+      <div class="hint">已支付 · 已接单 · 制作中</div>
+    </div>
+    <div class="stat">
+      <div class="label">已完成订单</div>
+      <div class="value" id="st-done">–</div>
+      <div class="hint">全部历史完成单</div>
+    </div>
+    <div class="stat gmv">
+      <div class="label">今日平台 GMV</div>
+      <div class="value" id="st-gmv">–</div>
+      <div class="hint">今日完成订单实付合计</div>
+    </div>
+  </section>
+
+  <div class="board">
+    <section class="panel" aria-label="订单实时流">
+      <div class="panel-head">
+        <h2>订单实时流</h2>
+        <span class="count" id="order-count">0</span>
+        <span class="tail">最新在上 · 点击卡片展开明细</span>
+      </div>
+      <div class="order-list" id="order-list">
+        <div class="empty"><div class="big">🧾</div>正在加载订单…</div>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="供应商">
+      <div class="panel-head">
+        <h2>供应商</h2>
+        <span class="count" id="sup-count">0</span>
+        <span class="tail">biz_suppliers</span>
+      </div>
+      <div class="sup-list" id="sup-list">
+        <div class="empty"><div class="big">🏭</div>正在加载供应商…</div>
+      </div>
+    </section>
+  </div>
+
+  <p class="foot">
+    SOD 平台看板 · 只读演示（写操作请前往 <a href="../userstudio.html">用户端</a> 或 <a href="../studio/login.html">商家工作台</a>）<br>
+    数据来源 Supabase · Realtime 实时推送 + 5s 轮询兜底
+  </p>
+</div>
+
+<script src="../demo/vendor/supabase.min.js"></script>
+<script src="../demo/config.js"></script>
+<script>
+(function (global) {
+  'use strict';
+
+  /* ---------- 状态 ---------- */
+  var db = null, channel = null, pollTimer = null, fetchTimer = null, fetching = false;
+  var orders = [], items = [], suppliers = [];
+  var opened = {};           // 订单号 → 是否展开
+  var connEl = document.getElementById('conn');
+  var connText = document.getElementById('conn-text');
+
+  var STATUS_LABEL = {
+    pending: '待支付', paid: '已支付', accepted: '已接单', making: '制作中',
+    shipped: '已发货', done: '已完成', closed: '已关闭', aftersale: '售后中'
+  };
+
+  /* ---------- 工具 ---------- */
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function dm(o) { return o.delivery_method || 'express'; }
+  function dmLabel(o) { return dm(o) === 'pickup' ? '自提' : '快递'; }
+  function statusLabel(o) {
+    if (o.status === 'shipped' && dm(o) === 'pickup') return '可取货';
+    return STATUS_LABEL[o.status] || o.status || '—';
+  }
+  function yuan(fen) { return '¥' + ((fen || 0) / 100).toFixed(2); }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function fmtTime(v) {
+    if (!v) return '';
+    var d = new Date(v);
+    return (d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function isToday(v) { return !!v && new Date(v).toDateString() === new Date().toDateString(); }
+  function supplierName(id) {
+    for (var i = 0; i < suppliers.length; i++) if (suppliers[i].id === id) return suppliers[i].name;
+    return id || '未派单';
+  }
+
+  function setConn(mode) {
+    connEl.className = 'conn ' + mode;
+    connText.textContent = mode === 'live' ? '实时已连接' : mode === 'poll' ? '轮询兜底中' : '云端未配置';
+  }
+
+  /* ---------- 初始化（只读，无任何写操作） ---------- */
+  function init() {
+    if (db) return true;
+    var c = global.SOD_CONFIG;
+    if (!global.supabase || !c || !c.SUPABASE_URL || !c.SUPABASE_ANON_KEY) return false;
+    try { db = global.supabase.createClient(c.SUPABASE_URL, c.SUPABASE_ANON_KEY); }
+    catch (e) { db = null; return false; }
+    return true;
+  }
+
+  var fetchFailCount = 0;
+  function fetchState() {
+    if (fetching || !db) return;
+    fetching = true;
+    /* 8s 超时兜底：网络不可达时 supabase-js 的 Promise 可能长时间不 settle，
+       race 保证失败路径每轮必触发（连续 2 次失败后给出明确提示） */
+    var timeout = new Promise(function (_, rej) {
+      setTimeout(function () { rej(new Error('fetch timeout')); }, 8000);
+    });
+    timeout.catch(function () {}); /* 防止 race 已胜出后的未处理拒绝告警 */
+    Promise.race([
+      Promise.all([
+        db.from('biz_orders').select('*').order('created_at', { ascending: false }).limit(200),
+        db.from('biz_order_items').select('*').limit(600),
+        db.from('biz_suppliers').select('*').order('id')
+      ]),
+      timeout
+    ]).then(function (rs) {
+      rs.forEach(function (r) { if (r.error) throw r.error; });
+      orders = rs[0].data || [];
+      items = rs[1].data || [];
+      suppliers = rs[2].data || [];
+      fetchFailCount = 0;
+      render();
+    }).catch(function (e) {
+      console.error('admin fetchState', e);
+      fetchFailCount++;
+      if (fetchFailCount >= 2) {
+        /* 连续拉取失败：给出明确提示（URL/网络不可达或 RLS 配置问题） */
+        setConn('poll');
+        document.getElementById('order-list').innerHTML =
+          '<div class="empty"><div class="big">📡</div>数据拉取失败，等待轮询重试…<br>' +
+          '<span style="font-size:12px;color:var(--ink-4)">请检查 demo/config.js 的 Supabase URL 与网络连通性</span></div>';
+        document.getElementById('sup-list').innerHTML =
+          '<div class="empty"><div class="big">📡</div>数据拉取失败，等待轮询重试…</div>';
+      }
+    }).finally(function () { fetching = false; });
+  }
+  function refetch() { clearTimeout(fetchTimer); fetchTimer = setTimeout(fetchState, 250); }
+
+  /* ---------- 渲染：统计条 ---------- */
+  function renderStats() {
+    var todayOrders = orders.filter(function (o) { return isToday(o.created_at); });
+    var pickupN = todayOrders.filter(function (o) { return dm(o) === 'pickup'; }).length;
+    var expressN = todayOrders.length - pickupN;
+    var pendingN = orders.filter(function (o) {
+      return ['paid', 'accepted', 'making'].indexOf(o.status) >= 0;
+    }).length;
+    var doneN = orders.filter(function (o) { return o.status === 'done'; }).length;
+    var gmv = orders.filter(function (o) { return o.status === 'done' && isToday(o.done_at); })
+      .reduce(function (s, o) { return s + (o.amount || 0); }, 0);
+
+    document.getElementById('st-today').textContent = todayOrders.length;
+    document.getElementById('st-today-pickup').textContent = pickupN;
+    document.getElementById('st-today-express').textContent = expressN;
+    document.getElementById('st-pending').textContent = pendingN;
+    document.getElementById('st-done').textContent = doneN;
+    document.getElementById('st-gmv').textContent = yuan(gmv);
+  }
+
+  /* ---------- 渲染：订单流 ---------- */
+  function renderOrders() {
+    var box = document.getElementById('order-list');
+    document.getElementById('order-count').textContent = orders.length;
+    if (!orders.length) {
+      box.innerHTML = '<div class="empty"><div class="big">🧾</div>暂无订单 · 等待用户端第一笔下单<br>下单入口：用户端「结算袋 → 去结算」</div>';
+      return;
+    }
+    var html = orders.map(function (o) {
+      var stCls = 'st-' + (o.status === 'shipped' && dm(o) === 'pickup' ? 'ready' : (o.status || 'pending'));
+      var open = !!opened[o.id];
+      return '<div class="order-card' + (open ? ' open' : '') + '" data-oid="' + esc(o.id) + '">' +
+        '<div class="order-row">' +
+          '<span class="no">' + esc(o.id) + '</span>' +
+          '<span class="pill ' + (dm(o) === 'pickup' ? 'dm-pickup' : 'dm-express') + '">' + dmLabel(o) + '</span>' +
+          '<span class="pill ' + stCls + '">' + statusLabel(o) + '</span>' +
+          '<span class="grow"></span>' +
+          '<span class="meta">' + esc(supplierName(o.supplier_id)) + ' · ' + (o.n || 0) + ' 张 · ' + fmtTime(o.created_at) + '</span>' +
+          '<span class="amount">' + yuan(o.amount) + '</span>' +
+          '<span class="caret">▶</span>' +
+        '</div>' +
+        '<div class="order-detail">' + renderDetail(o) + '</div>' +
+      '</div>';
+    }).join('');
+    box.innerHTML = html;
+    Array.prototype.forEach.call(box.querySelectorAll('.order-row'), function (row) {
+      row.addEventListener('click', function () {
+        var card = row.parentNode;
+        var oid = card.getAttribute('data-oid');
+        opened[oid] = !opened[oid];
+        card.classList.toggle('open', opened[oid]);
+      });
+    });
+  }
+
+  function renderDetail(o) {
+    var its = items.filter(function (it) { return it.order_id === o.id; });
+    var itemsHtml = its.length
+      ? its.map(function (it) {
+          var thumb = it.thumb
+            ? '<img src="' + esc(it.thumb) + '" alt="">'
+            : '<span class="ph">🖼️</span>';
+          return '<div class="item-line">' + thumb +
+            '<span class="nm">' + esc(it.name) + '</span>' +
+            '<span class="cp">×' + (it.copies || 1) + '</span></div>';
+        }).join('')
+      : '<div class="body">（无明细）</div>';
+
+    var addrHtml;
+    if (dm(o) === 'pickup') {
+      var sup = null;
+      for (var i = 0; i < suppliers.length; i++) if (suppliers[i].id === o.supplier_id) { sup = suppliers[i]; break; }
+      addrHtml =
+        '<h4>自提门店</h4><div class="body">' +
+        (sup
+          ? '<b>' + esc(sup.name) + '</b><br>' + esc(sup.address || '地址待补充') +
+            '<br>营业时间 ' + esc(sup.open_hours || '—')
+          : '门店信息待同步') +
+        (o.ready_at ? '<br>预计可取 ' + fmtTime(o.ready_at) : '') +
+        '</div>' +
+        '<h4 style="margin-top:12px">取货码</h4>' +
+        (o.pickup_code
+          ? '<div class="pickup-code-line"><span class="code">' + esc(o.pickup_code) + '</span><span style="font-size:12px">到店出示核验</span></div>'
+          : '<div class="body">（未生成）</div>');
+    } else {
+      var a = o.address || {};
+      addrHtml =
+        '<h4>收货地址</h4><div class="body">' +
+        (a.name || a.region || a.detail
+          ? esc(a.name || '') + (a.phone ? ' · ' + esc(a.phone) : '') + '<br>' +
+            esc(a.region || '') + ' ' + esc(a.detail || '')
+          : '（未填写）') +
+        (o.ship_company ? '<br>' + esc(o.ship_company) + (o.ship_no ? ' · ' + esc(o.ship_no) : '') : '') +
+        '</div>';
+    }
+    var noteHtml = o.note
+      ? '<h4>备注</h4><div class="body">' + esc(o.note) + '</div>' : '';
+
+    return '<div class="detail-grid">' +
+      '<div class="detail-block"><h4>作品明细（' + its.length + ' 项）</h4>' + itemsHtml + '</div>' +
+      '<div class="detail-block">' + addrHtml + noteHtml + '</div>' +
+    '</div>';
+  }
+
+  /* ---------- 渲染：供应商 ---------- */
+  function renderSuppliers() {
+    var box = document.getElementById('sup-list');
+    document.getElementById('sup-count').textContent = suppliers.length;
+    if (!suppliers.length) {
+      box.innerHTML = '<div class="empty"><div class="big">🏭</div>暂无供应商数据</div>';
+      return;
+    }
+    box.innerHTML = suppliers.map(function (s) {
+      var todayCount = orders.filter(function (o) {
+        return o.supplier_id === s.id && isToday(o.created_at);
+      }).length;
+      return '<div class="sup-card">' +
+        '<div class="sup-name">' + esc(s.name) +
+          (s.is_default ? '<span class="tag-default">默认兜底</span>' : '') +
+          '<span class="pill dm-express" style="margin-left:auto">' + todayCount + ' 单今日</span>' +
+        '</div>' +
+        '<div class="sup-rows">' +
+          '<b>服务区域</b> ' + esc((s.region_codes || []).join('、') || '—') + '<br>' +
+          '<b>日接单上限</b> ' + (s.daily_cap == null ? '—' : s.daily_cap) + ' 张<br>' +
+          '<b>余额</b> <span class="bal">' + yuan(s.balance) + '</span><br>' +
+          '<b>营业时间</b> ' + esc(s.open_hours || '—') +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function render() { renderStats(); renderOrders(); renderSuppliers(); }
+
+  /* ---------- 启动 ---------- */
+  if (!init()) {
+    document.getElementById('setup-banner').classList.add('show');
+    setConn('off');
+    document.getElementById('order-list').innerHTML =
+      '<div class="empty"><div class="big">🔌</div>看板依赖云端数据，请检查 Supabase 配置</div>';
+    document.getElementById('sup-list').innerHTML =
+      '<div class="empty"><div class="big">🔌</div>看板依赖云端数据，请检查 Supabase 配置</div>';
+    return;
+  }
+
+  setConn('poll');
+  channel = db.channel('sod-admin')
+    .on('postgres_changes', { event: '*', schema: 'public' }, refetch)
+    .subscribe(function (st) {
+      if (st === 'SUBSCRIBED') setConn('live');
+      else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') setConn('poll');
+    });
+  pollTimer = setInterval(fetchState, 5000);
+  fetchState();
+})(window);
+</script>
+</body>
+</html>
