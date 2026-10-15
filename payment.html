@@ -6,40 +6,52 @@
 <title>支付 · SOD</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/theme-v2.css">
 <style>
   .pay-wrap { display: grid; grid-template-columns: 300px minmax(0,1fr); gap: 32px; align-items: start; }
   @media (max-width: 880px) { .pay-wrap { grid-template-columns: 1fr; } }
-  .pay-amount { font-size: 40px; font-weight: 800; color: var(--brand-deep); letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+  .pay-amount { font-size: 44px; font-weight: 900; color: var(--ink); letter-spacing: -1.5px; font-variant-numeric: tabular-nums; }
   .pay-amount .cur { font-size: 22px; margin-right: 2px; }
   .pay-method {
     display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
-    padding: 14px 16px; border-radius: var(--r-md); border: 1.5px solid var(--line-strong); background: #fff;
+    padding: 14px 16px; border-radius: var(--r-sm); border: 1.5px solid var(--line-strong); background: #fff;
     transition: border-color .16s var(--ease), background .16s var(--ease);
   }
-  .pay-method.is-active { border-color: var(--brand); background: var(--brand-soft); }
-  .pay-logo { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: #fff; flex: none; }
+  .pay-method.is-active { border-color: var(--ink); }
+  .pay-logo { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: #fff; flex: none; }
   .pay-logo.wx { background: #2AAC52; }
   .pay-logo.ali { background: #1677FF; }
   .pay-count { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--danger); }
-  /* 支付成功 · 自提单取货码 */
+  /* 支付成功 · 自提单取货码（与 order-detail 56px 黑框风格统一） */
   .pay-success { text-align: center; }
-  .pay-success .s-title { font-size: 20px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; }
-  .pay-success .s-icon { width: 40px; height: 40px; border-radius: 50%; background: var(--mint-soft); color: #2F7E65; display: grid; place-items: center; }
+  .pay-success .s-title { font-size: 22px; font-weight: 900; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .pay-success .s-icon { width: 40px; height: 40px; border-radius: 50%; background: var(--mint-soft); color: var(--mint); display: grid; place-items: center; }
   .pickup-code-box {
     margin: 18px auto 0; padding: 22px 18px 16px; max-width: 340px; text-align: center;
-    border-radius: var(--r-lg); border: 2px dashed var(--brand); background: var(--brand-soft);
+    border-radius: var(--r-sm); border: 2px solid var(--ink); background: #fff;
   }
-  .pickup-code-label { font-size: 13px; font-weight: 700; color: var(--brand-deep); letter-spacing: 4px; }
+  .pickup-code-label { font-size: 13px; font-weight: 700; color: var(--ink-3); letter-spacing: 4px; }
   .pickup-code {
-    font-size: 52px; font-weight: 800; letter-spacing: 12px; line-height: 1.15; margin-top: 6px;
-    color: var(--brand-deep); font-variant-numeric: tabular-nums; text-indent: 12px;
+    font-size: 56px; font-weight: 900; letter-spacing: 14px; text-indent: 14px; line-height: 1.1; margin-top: 8px;
+    color: var(--ink); font-variant-numeric: tabular-nums;
   }
-  .pickup-code-sub { font-size: 12px; color: var(--ink-3); margin-top: 6px; }
+  .pickup-code-sub { font-size: 12.5px; color: var(--ink-3); margin-top: 8px; }
   .pickup-store-box {
-    margin: 12px auto 0; max-width: 340px; padding: 12px 16px; border-radius: var(--r-md);
-    background: var(--cream-100); font-size: 13px; line-height: 1.7; color: var(--ink-2);
+    margin: 12px auto 0; max-width: 340px; padding: 12px 16px; border-radius: var(--r-xs);
+    background: var(--cream-200); font-size: 13px; line-height: 1.7; color: var(--ink-2);
   }
   .pickup-store-box b { color: var(--ink); }
+  /* ---- 移动端 App 式专项（配合 theme-v2 全局段） ---- */
+  @media (max-width: 760px) {
+    .pay-wrap { grid-template-columns: 1fr; }
+    .pay-amount { font-size: 38px; }
+    .pickup-code { font-size: 48px; letter-spacing: 12px; text-indent: 12px; }
+    /* 二维码列移动端隐藏（手机不扫自己屏幕）；桌面叙事保留 */
+    .pay-qr-col { display: none; }
+    /* 订单摘要行（张数 · 金额 · 倒计时一行） */
+    .pay-summary-line { display: flex; align-items: baseline; justify-content: center; gap: 8px; flex-wrap: wrap; }
+    #btn-later { margin-top: 70px; }
+  }
 </style>
 </head>
 <body>
@@ -56,8 +68,8 @@
     <div class="divider mt-24"></div>
 
     <div class="pay-wrap mt-24">
-      <!-- 左：二维码 -->
-      <div>
+      <!-- 左：二维码（仅桌面；移动端隐藏——手机不扫自己屏幕） -->
+      <div class="pay-qr-col">
         <div class="center">
           <div class="qr-box"><img id="pay-qr" src="" alt="收款二维码" style="width:100%;height:100%"></div>
           <p class="t-sm muted mt-12" id="qr-tip">扫码支付</p>
@@ -81,10 +93,10 @@
 
         <div class="notice notice-sun" style="display:flex;gap:10px">
           <span class="notice-icon" id="i-info"></span>
-          <span>原型演示：没有真实收款通道，点下方按钮即可模拟支付完成。</span>
+          <span>演示环境：点下方按钮完成支付。</span>
         </div>
 
-        <button class="btn btn-primary btn-xl btn-block mt-8" id="btn-paid">模拟支付成功</button>
+        <button class="btn btn-primary btn-xl btn-block mt-8" id="btn-paid">完成支付</button>
         <button class="btn btn-ghost btn-block" id="btn-later">稍后再付</button>
       </div>
     </div>
@@ -126,12 +138,17 @@
     $('#pay-head').innerHTML =
       '<div class="t-sm muted">请支付</div>' +
       '<div class="pay-amount mt-4"><span class="cur">¥</span>' + Pricing.fmt(o.amount) + '</div>' +
-      '<div class="row gap-8 mt-8" style="justify-content:center">' +
-        '<span class="t-tiny muted">订单号 ' + o.id + '</span>' +
+      '<div class="pay-summary-line mt-8">' +
+        '<span class="t-tiny muted">' + o.n + ' 张</span>' +
         '<span class="t-tiny muted">·</span>' +
         (isPickup(o) ? '<span class="t-tiny muted">到店自提</span><span class="t-tiny muted">·</span>' : '') +
-        '<span class="t-tiny muted">支付剩余 <span class="pay-count" id="pay-count">15:00</span></span>' +
+        '<span class="t-tiny muted">' + o.id + '</span>' +
+        '<span class="t-tiny muted">·</span>' +
+        '<span class="t-tiny muted">剩余 <span class="pay-count" id="pay-count">15:00</span></span>' +
       '</div>';
+    /* 吸底按钮带金额（移动端 App 式「立即支付 ¥xx.xx」） */
+    var bp = $('#btn-paid');
+    if (bp) bp.textContent = '立即支付 ¥' + Pricing.fmt(o.amount);
   }
 
   /* 云端单首次进入可能尚未拉到：subscribe 等首次数据到达再渲染；本地单直接渲染 */
@@ -170,16 +187,15 @@
     $('#pay-card').innerHTML =
       '<div class="pay-success">' +
         '<div class="s-title"><span class="s-icon">' + UI.icon('check') + '</span>支付成功</div>' +
-        '<div class="t-tiny muted mt-8">订单 ' + o.id + ' · 已通知门店接单</div>' +
+        '<div class="t-tiny muted mt-8">' + o.id + '</div>' +
         '<div class="pickup-code-box">' +
           '<div class="pickup-code-label">取货码</div>' +
           '<div class="pickup-code">' + code + '</div>' +
-          '<div class="pickup-code-sub">凭此码到店领取 · 制作完成后即可取件</div>' +
+          '<div class="pickup-code-sub">' + readyTxt + ' 后可取</div>' +
         '</div>' +
         '<div class="pickup-store-box">' +
-          '<b>' + UI.escapeHtml(store.name) + '</b><br>' +
-          UI.escapeHtml(store.address) + '<br>' +
-          '营业时间 ' + UI.escapeHtml(store.openHours) + ' · 预计可取：' + readyTxt +
+          '<b>' + UI.escapeHtml(store.name) + '</b> · ' + UI.escapeHtml(store.openHours) + '<br>' +
+          UI.escapeHtml(store.address) +
         '</div>' +
         '<div class="row gap-12 mt-16" style="justify-content:center">' +
           '<a class="btn btn-primary" href="order-detail.html?id=' + o.id + '">查看订单</a>' +
@@ -255,11 +271,11 @@
             setTimeout(function () { location.href = 'order-detail.html?id=' + order.id; }, 600);
           }
         } else {
-          btn.disabled = false; btn.textContent = '模拟支付成功';
+          btn.disabled = false; btn.textContent = '立即支付 ¥' + Pricing.fmt(order.amount);
           UI.toast((r && r.msg) || '支付失败，请重试', 'err');
         }
       }).catch(function (e) {
-        btn.disabled = false; btn.textContent = '模拟支付成功';
+        btn.disabled = false; btn.textContent = '立即支付 ¥' + Pricing.fmt(order.amount);
         UI.toast('云端连接失败：' + (e.message || e), 'err');
       });
     });

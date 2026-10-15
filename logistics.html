@@ -6,6 +6,13 @@
 <title>物流详情 · SOD</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/theme-v2.css">
+<style>
+  /* 移动端：运单号卡信息加大、签收按钮吸底（theme-v2 .od-actions 已吸底） */
+  @media (max-width: 760px) {
+    .lg-head .t-sm.strong { font-size: 16px; }
+  }
+</style>
 </head>
 <body>
 <div id="nav-root"></div>
@@ -38,11 +45,11 @@
       $('#page').innerHTML =
         '<div class="row gap-12 mb-16">' +
           '<a class="btn btn-ghost btn-sm" href="order-detail.html?id=' + order.id + '"><span class="ico" id="i-b"></span>订单详情</a>' +
-          '<span class="pill pill-mint"><span class="dot"></span>&nbsp;实时同步中</span>' +
+          '<span class="pill pill-mint"><span class="dot"></span>&nbsp;实时</span>' +
         '</div>' +
         '<div class="card card-pad"><div style="padding:56px 20px;text-align:center;color:var(--ink-3);font-size:13.5px">' +
           '<div style="font-size:34px;opacity:.45">🚚</div>' +
-          '<p class="t-sm muted" style="margin-top:10px">商家还未发货。<br>发货后物流信息会自动出现在这里。</p>' +
+          '<p class="t-sm muted" style="margin-top:10px">还没发货，发了会同步到这里。</p>' +
         '</div></div>';
       var ib = $('#i-b'); if (ib) ib.innerHTML = UI.icon('chevronL');
       return;
@@ -51,7 +58,7 @@
     $('#page').innerHTML =
       '<div class="row gap-12 mb-16">' +
         '<a class="btn btn-ghost btn-sm" href="order-detail.html?id=' + order.id + '"><span class="ico" id="i-b"></span>订单详情</a>' +
-        (Cloud.ok() && order.isCloud ? '<span class="pill pill-mint"><span class="dot"></span>&nbsp;实时同步中</span>' : '') +
+        (Cloud.ok() && order.isCloud ? '<span class="pill pill-mint"><span class="dot"></span>&nbsp;实时</span>' : '') +
       '</div>' +
 
       '<div class="card card-pad">' +
@@ -93,11 +100,11 @@
 
       '<div class="notice mt-16" style="display:flex;gap:10px">' +
         '<span class="notice-icon">' + UI.icon('info') + '</span>' +
-        '<span>签收后订单会自动完成。物流长时间没更新可以联系我们。</span>' +
+        '<span>签收后订单完成。</span>' +
       '</div>' +
 
       '<div class="od-actions" style="margin-top:24px">' +
-        '<button class="btn btn-primary btn-block" id="btn-sign">模拟签收</button>' +
+        '<button class="btn btn-primary btn-block" id="btn-sign">确认签收</button>' +
       '</div>';
 
     var ib = $('#i-b'); if (ib) ib.innerHTML = UI.icon('chevronL');
@@ -118,7 +125,7 @@
           UI.toast('已签收，订单完成', 'ok');
           setTimeout(function () { location.href = 'order-detail.html?id=' + order.id; }, 600);
         } else {
-          btn.disabled = false; btn.textContent = '模拟签收';
+          btn.disabled = false; btn.textContent = '确认签收';
           UI.toast((r && r.msg) || '签收失败', 'err');
         }
       });

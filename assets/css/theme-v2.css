@@ -1,0 +1,270 @@
+/* ============================================================
+   theme-v2 · 大字极简风（视觉层覆盖）
+   ────────────────────────────────────────────────────────────
+   ⚠️ 视觉层覆盖，禁止在这里改布局结构（display/grid/flex
+      骨架一律不动，只动颜色/字号/字重/边框/阴影/圆角）。
+   引用方式：在页面所有 <link> 的最后挂本文件（app.css 之后）。
+   基调：纯白底 · 墨色 #111110 · 单一强调色 #FF4D00 · 中性灰分区
+   参照：Sticker Mule 式大字极简，一屏一句话。
+   ============================================================ */
+
+/* ---------- Design Tokens 重定义 ---------- */
+:root {
+  /* 底色：纯白 + 中性灰分区（替换奶油系） */
+  --cream-50:  #FFFFFF;
+  --cream-100: #FFFFFF;
+  --cream-200: #F5F4F2;
+  --cream-300: #EBEAE7;
+
+  --line:        #EDECEA;
+  --line-strong: #DDDBD7;
+
+  /* 文字：冷调中性（近黑体系） */
+  --ink:   #111110;
+  --ink-2: #3E3C39;
+  --ink-3: #7A7772;
+  --ink-4: #AEABA5;
+
+  /* 强调色：高饱和品牌橙（收紧奶油感） */
+  --brand:      #FF4D00;
+  --brand-dark: #E64500;
+  --brand-deep: #C23C00;
+  --brand-soft: #FFF1EA;
+  --brand-ring: rgba(255, 77, 0, .22);
+
+  /* 辅助色：降饱和、克制的功能色 */
+  --mint:      #0F9960;
+  --mint-soft: #E8F6EF;
+  --sky:       #2563EB;
+  --sky-soft:  #EDF3FE;
+  --grape:     #7C5CE0;
+  --grape-soft:#F1EDFC;
+  --sun:       #C98A00;
+  --sun-soft:  #FAF3E2;
+
+  --danger:      #D93025;
+  --danger-soft: #FCEDEB;
+
+  /* 圆角：收紧（大字极简偏方正利落） */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-2xl: 20px;
+
+  /* 阴影：去暖底、近乎无影 */
+  --sh-1: 0 1px 2px rgba(17, 17, 16, .04);
+  --sh-2: 0 3px 12px rgba(17, 17, 16, .06);
+  --sh-3: 0 12px 40px rgba(17, 17, 16, .12);
+  --sh-brand: none;
+}
+
+/* ---------- 基底 ---------- */
+body {
+  background: #fff;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.65;
+  letter-spacing: .1px;
+}
+::selection { background: var(--brand); color: #fff; }
+
+/* ---------- Typography：整体放大一档 ---------- */
+.t-display { font-size: 44px; line-height: 1.15; font-weight: 900; letter-spacing: -1.2px; }
+.t-h1      { font-size: 32px; line-height: 1.2;  font-weight: 900; letter-spacing: -.8px; }
+.t-h2      { font-size: 24px; line-height: 1.3;  font-weight: 800; letter-spacing: -.4px; }
+.t-h3      { font-size: 17px; line-height: 1.4;  font-weight: 800; letter-spacing: -.2px; }
+.t-body    { font-size: 15px; }
+.t-sm      { font-size: 14px; }
+.t-tiny    { font-size: 12.5px; }
+
+/* ---------- Nav ---------- */
+.nav {
+  background: rgba(255, 255, 255, .92);
+  border-bottom: 1px solid var(--line);
+}
+.nav-brand { font-weight: 900; font-size: 18px; letter-spacing: -.3px; }
+.nav-brand .logo {
+  background: var(--ink);
+  box-shadow: none;
+  border-radius: 8px;
+}
+.nav-link { font-weight: 600; border-radius: var(--r-sm); color: var(--ink-3); }
+.nav-link:hover { background: var(--cream-200); color: var(--ink); }
+.nav-link.is-active { background: var(--ink); color: #fff; }
+.avatar { background: var(--cream-200); border-color: transparent; color: var(--ink-2); }
+.avatar-btn:hover { background: var(--cream-200); }
+.dropdown { border-radius: var(--r-md); }
+.dropdown-item:hover { background: var(--cream-200); }
+.badge-count { background: var(--brand); border-color: #fff; }
+
+/* ---------- Button：方块感、大字、克制 ---------- */
+.btn {
+  height: 44px;
+  border-radius: var(--r-sm);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: .2px;
+}
+.btn-lg { height: 54px; font-size: 16px; border-radius: var(--r-sm); }
+.btn-xl { height: 60px; font-size: 18px; font-weight: 800; border-radius: var(--r-sm); }
+.btn-sm { height: 36px; font-size: 14px; border-radius: var(--r-xs); }
+.btn-xs { height: 30px; font-size: 12.5px; border-radius: var(--r-xs); }
+
+.btn-primary { background: var(--brand); color: #fff; }
+.btn-primary:hover { background: var(--brand-dark); }
+.btn-dark { background: var(--ink); }
+.btn-dark:hover { background: #2B2A28; }
+.btn-outline { border-color: var(--line-strong); }
+.btn-outline:hover { border-color: var(--ink); background: #fff; }
+.btn-ghost:hover { background: var(--cream-200); }
+.btn-soft { background: var(--brand-soft); color: var(--brand-deep); }
+.btn-soft:hover { background: #FFE4D6; }
+
+/* ---------- Card：去描边阴影、走浅灰底或纯分隔 ---------- */
+.card {
+  border-color: var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: none;
+}
+.card-hover:hover { box-shadow: var(--sh-2); border-color: var(--line-strong); }
+.card-flat { background: var(--cream-200); }
+
+/* ---------- Pill：轻背景、无糖霜色 ---------- */
+.pill { font-size: 12px; padding: 2px 9px; font-weight: 700; }
+.pill-brand { background: var(--brand-soft); color: var(--brand); }
+.pill-mint  { background: var(--mint-soft);  color: var(--mint); }
+.pill-sky   { background: var(--sky-soft);   color: var(--sky); }
+.pill-grape { background: var(--grape-soft); color: var(--grape); }
+.pill-sun   { background: var(--sun-soft);   color: #8A6310; }
+.pill-gray  { background: var(--cream-200);  color: var(--ink-2); }
+.pill-danger{ background: var(--danger-soft);color: var(--danger); }
+
+/* ---------- Form ---------- */
+.input, .select, .textarea {
+  border-radius: var(--r-sm);
+  border-color: var(--line-strong);
+}
+.input:focus, .select:focus, .textarea:focus { box-shadow: 0 0 0 3px var(--brand-ring); }
+
+/* ---------- 金额：更大更黑 ---------- */
+.price-row { font-size: 15px; }
+.price-total .v { font-size: 34px; font-weight: 900; color: var(--ink); letter-spacing: -1px; }
+.price-total .v .cur { font-size: 18px; }
+
+/* ---------- Toast：黑底利落 ---------- */
+.toast { background: var(--ink); border-radius: var(--r-sm); font-weight: 600; }
+.toast.ok   { background: var(--mint); }
+.toast.warn { background: #B47B00; }
+.toast.err  { background: var(--danger); }
+
+/* ---------- Modal ---------- */
+.modal { border-radius: var(--r-lg); }
+.modal-foot { background: var(--cream-200); }
+
+/* ---------- Notice：灰底白描边、去彩色糖霜 ---------- */
+.notice {
+  background: var(--cream-200);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--ink-2);
+}
+.notice-brand { background: var(--brand-soft); color: var(--brand-deep); }
+.notice-mint  { background: var(--mint-soft);  color: #0B7A4C; }
+.notice-sun   { background: var(--sun-soft);   color: #8A6310; }
+.notice-danger{ background: var(--danger-soft);color: var(--danger); }
+
+/* ---------- Tab ---------- */
+.tabs { background: var(--cream-200); border-radius: var(--r-sm); }
+.tab { border-radius: var(--r-xs); font-weight: 700; }
+.tab.is-active { box-shadow: none; outline: 1px solid var(--line-strong); }
+
+/* ---------- Timeline：极简点线 ---------- */
+.tl-item::before { background: var(--line-strong); }
+.tl-node { border-color: var(--line-strong); }
+.tl-item.is-done .tl-node { background: var(--ink); border-color: var(--ink); }
+.tl-item.is-current .tl-node { background: var(--brand); border-color: var(--brand); box-shadow: 0 0 0 4px var(--brand-ring); }
+
+/* ---------- 规则表 ---------- */
+.rule-table tr.is-hit td { background: var(--brand-soft); }
+
+/* ---------- 其他 ---------- */
+.od-actions { background: #fff; }
+.stepper { border-radius: var(--r-sm); }
+.stepper button:hover:not([disabled]) { background: var(--brand-soft); color: var(--brand); }
+.qr-box { border-radius: var(--r-sm); box-shadow: none; }
+.ed-tool-btn:hover:not([disabled]) { background: var(--cream-200); }
+.thumb {
+  background: var(--cream-200) repeating-conic-gradient(from 0deg, var(--cream-200) 0% 25%, #fff 0% 50%) 0 0 / 16px 16px;
+  border-color: var(--line);
+}
+
+/* ---------- 移动端 nav 防溢出（≤420px）：昵称收窄、链接区间距收紧 ---------- */
+@media (max-width: 420px) {
+  .nav-links { gap: 0; margin-left: 8px; }
+  .nav-link { padding: 8px 8px; font-size: 13.5px; }
+  .nav-user .t-sm { max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .container { padding: 0 14px; }
+}
+
+/* ============================================================
+   移动端 App 式排版（≤760px）· 移动端原生设计基准
+   全宽卡片堆叠 / 主操作吸底 / 按钮 pill 防换行
+   （汉堡抽屉样式由 ui.js 内联注入，不依赖本文件，全站页面统一生效）
+   ⚠️ 仅动移动端视觉层；桌面（>760px）一律不受影响
+   ============================================================ */
+
+@media (max-width: 760px) {
+  body { font-size: 14px; }
+
+  /* ---- 页头：App 式「大标题 + 留白」 ---- */
+  .page { padding: 20px 0 110px; }
+  .t-h1 { font-size: 26px; letter-spacing: -.6px; }
+  .t-h2 { font-size: 21px; }
+  .t-h3 { font-size: 16px; }
+
+  /* ---- 卡片：全宽堆叠、去外圈留白、轻分隔 ---- */
+  .container, .container-narrow { padding: 0 16px; }
+  .card { border-radius: var(--r-md); }
+  .card-pad { padding: 16px; }
+  .card-pad-lg { padding: 20px 16px; }
+  .stack.gap-16 { gap: 12px; }
+
+  /* ---- 全局防换行兜底：按钮与 pill 移动端一律单行，超长省略 ---- */
+  .btn, .pill { white-space: nowrap; }
+  .btn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ---- 订单状态区：字号/内边距降档，防止 pill 挤压换行 ---- */
+  .card .row.between { flex-wrap: wrap; gap: 6px; }
+  .card .t-h2 { font-size: 19px; }
+  .pill { font-size: 11.5px; padding: 2px 8px; flex: none; }
+
+  /* ---- 主操作吸底（App 惯例）：订单详情底部动作 / checkout 提交 / payment 支付 ---- */
+  .od-actions {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    background: #fff; border-top: 1px solid var(--line);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    margin-top: 0;
+  }
+  .od-actions .btn-block { height: 50px; font-size: 16px; font-weight: 800; }
+  .ck-layout > aside .card { padding-bottom: 96px; }
+  .ck-layout > aside #btn-submit,
+  #btn-paid {
+    position: fixed; left: 16px; right: 16px; width: auto;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    z-index: 50; height: 50px; font-size: 16px; font-weight: 800;
+    box-shadow: 0 -4px 16px rgba(17, 17, 16, .06);
+  }
+
+  /* ---- 表单/卡片内选择态：加大触控热区 ---- */
+  .btn { height: 46px; }
+  .btn-lg { height: 50px; }
+  .input, .select { height: 48px; }
+
+  /* ---- 时间线：更紧凑 ---- */
+  .tl-item { padding-bottom: 16px; }
+
+  /* ---- toast 上移避开吸底按钮 ---- */
+  .toast-wrap { bottom: 88px; }
+}

@@ -7,6 +7,56 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/css/app.css">
 <link rel="stylesheet" href="assets/css/editor.css">
+<link rel="stylesheet" href="assets/css/theme-v2.css">
+<style>
+  /* ============ 编辑器 · 移动中心适配层（仅 CSS 布局，DOM/JS 零改动） ============
+     移动端（≤760px）：顶栏简化（退出+主操作）、左面板变底部抽屉式工具盘、
+     属性面板浮层化、底部控件收紧——手机「上传→勾边→排版」主路径优先。
+     桌面布局完全不变。 */
+  @media (max-width: 760px) {
+    /* 顶栏：保退出 + 主操作，藏撤销重做入长条（防换行），标题收窄 */
+    .ed-top { padding: 0 10px; gap: 6px; }
+    .ed-back { padding: 7px 8px; }
+    .ed-back .ico { display: none; }
+    .ed-title-input { width: 90px; font-size: 13px; }
+    .ed-status { display: none; }
+    #btn-save { display: none; } /* 移动端自动保存，手动保存按钮让位 */
+    #btn-undo, #btn-redo { display: none; } /* 画布浮动条已有等效力，顶栏收纳 */
+
+    /* 主体：左面板改底部工具盘（column-reverse + DOM 顺序自然置底，勿加 order 反转） */
+    .ed-main { flex-direction: column-reverse; }
+    .ed-root { position: fixed; inset: 0; }
+    .ed-left {
+      width: 100%; flex: 1 1 46%; min-height: 34vh; max-height: 52vh;
+      border-right: 0; border-top: 1px solid var(--line);
+    }
+    .ed-tabs { padding: 6px 8px 0; }
+    .ed-tab { padding: 8px 2px 10px; font-size: 11.5px; }
+    .ed-panels { padding: 12px; }
+    .ed-stage { min-height: 0; flex: 1 1 54%; }
+    .ed-canvas-wrap { padding: 10px; }
+
+    /* 底部控件：可横滑，hint 隐藏 */
+    .ed-bottom { padding: 0 10px; overflow-x: auto; scrollbar-width: none; }
+    .ed-bottom #canvas-hint { display: none; }
+    .ed-toggle { height: 32px; padding: 0 10px; flex: none; }
+
+    /* 右属性面板：浮层化（贴右满高，宽度 82vw） */
+    .ed-right {
+      position: fixed; right: 0; top: 56px; bottom: 0; z-index: 45;
+      width: min(82vw, 300px); box-shadow: -8px 0 24px rgba(17, 17, 16, .10);
+    }
+
+    /* 抠图对话框：满屏化 */
+    .ed-matting-backdrop { padding: 10px; }
+    .ed-matting { max-height: 96vh; }
+    .ed-compare { grid-template-columns: 1fr; }
+    .ed-three-opts { grid-template-columns: 1fr; }
+
+    /* 浮动快捷条：触控加大 */
+    .ed-float button { width: 36px; height: 36px; }
+  }
+</style>
 </head>
 <body class="editor-body">
 
@@ -45,12 +95,12 @@
             <div class="ed-upload" id="drop-zone">
               <span class="ico" id="i-upload"></span>
               <div class="t-sm strong">点击上传照片</div>
-              <div class="ed-upload-tip">也可以把图片拖到这里<br>支持 JPEG · PNG，可一次选多张</div>
+              <div class="ed-upload-tip">JPEG · PNG，可多选</div>
             </div>
             <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp" multiple hidden>
             <div class="notice">
               <span class="notice-icon" id="i-np"></span>
-              <span>上传后可一键 AI 抠图。<b>抠图会把原图传到云端处理，处理完即删除</b>，不会留存或挪作他用。</span>
+              <span>上传后可一键 AI 抠图，处理完即删。</span>
             </div>
           </div>
         </div>
@@ -66,7 +116,7 @@
               <div class="ed-prop-label mb-8">通用素材（无 IP）</div>
               <div class="ed-asset-grid" id="asset-grid"></div>
             </div>
-            <p class="ed-upload-tip">点一下就加到画布上，之后可以改颜色、大小和描边。</p>
+            <p class="ed-upload-tip">点一下加到画布，可改色/大小/描边。</p>
           </div>
         </div>
 
@@ -90,7 +140,7 @@
           <div class="stack gap-12">
             <div class="ed-prop-label mb-8">从这里开始的布局框架</div>
             <div class="stack gap-8" id="tpl-list"></div>
-            <p class="ed-upload-tip">模板只放位置框，不占位具体的图，加完把框删掉就行。</p>
+            <p class="ed-upload-tip">模板只放位置框，加完删框即可。</p>
           </div>
         </div>
 
@@ -122,7 +172,7 @@
         <button class="ed-toggle is-on" id="btn-safe"><span class="ico" id="i-safe"></span>安全区</button>
         <button class="ed-toggle" id="btn-cut"><span class="ico" id="i-cut"></span>模切轮廓</button>
         <button class="ed-toggle" id="btn-bg"><span class="ico" id="i-bg"></span>纸底色</button>
-        <span class="t-tiny muted" id="canvas-hint">滚轮缩放 · 空白处拖拽可平移</span>
+        <span class="t-tiny muted" id="canvas-hint">滚轮缩放 · 拖拽平移</span>
       </div>
     </div>
 

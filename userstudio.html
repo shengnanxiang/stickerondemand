@@ -6,45 +6,44 @@
 <title>登录 · SOD</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/theme-v2.css">
 <style>
   .auth-wrap { min-height: 100vh; display: grid; grid-template-columns: 1.05fr .95fr; }
   .auth-brand {
-    position: relative; overflow: hidden; color: #fff; padding: 56px 60px;
-    background: linear-gradient(150deg, #FF9257 0%, #FF7A45 42%, #EC5A24 100%);
+    position: relative; overflow: hidden; color: #111110; padding: 64px 60px;
+    background: #fff; border-right: 1px solid #EDECEA;
     display: flex; flex-direction: column; justify-content: center;
   }
-  .auth-brand::after {
-    content: ''; position: absolute; width: 460px; height: 460px; right: -180px; bottom: -200px;
-    border-radius: 50%; background: rgba(255, 255, 255, .09);
-  }
-  .auth-brand::before {
-    content: ''; position: absolute; width: 240px; height: 240px; right: 40px; top: -110px;
-    border-radius: 50%; background: rgba(255, 255, 255, .10);
-  }
   .auth-brand-inner { position: relative; z-index: 1; max-width: 460px; }
-  .brand-logo { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 800; letter-spacing: .4px; }
-  .brand-logo .logo { width: 40px; height: 40px; border-radius: 13px; background: rgba(255,255,255,.22); display: grid; place-items: center; }
-  .auth-lead { font-size: 40px; line-height: 1.22; font-weight: 800; letter-spacing: -.8px; margin: 34px 0 16px; }
-  .auth-sub { font-size: 15px; line-height: 1.72; color: rgba(255,255,255,.90); max-width: 400px; }
-  .auth-points { margin-top: 36px; display: flex; flex-direction: column; gap: 13px; }
-  .auth-point { display: flex; align-items: center; gap: 11px; font-size: 14.5px; font-weight: 600; }
-  .auth-point i {
-    width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.24);
-    display: grid; place-items: center; flex: none; font-style: normal; font-size: 12px;
-  }
-  .auth-side { display: grid; place-items: center; padding: 48px 32px; background: var(--cream-50); }
+  .brand-logo { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 900; letter-spacing: -.3px; }
+  .brand-logo .logo { width: 30px; height: 30px; border-radius: 8px; background: #111110; display: grid; place-items: center; color: #fff; }
+  .auth-lead { font-size: clamp(40px, 5.5vw, 64px); line-height: 1.1; font-weight: 900; letter-spacing: -2px; margin: 36px 0 18px; }
+  .auth-lead em { font-style: normal; color: #FF4D00; }
+  .auth-sub { font-size: 17px; line-height: 1.65; color: #7A7772; max-width: 400px; }
+  .auth-stats { margin-top: 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: #EDECEA; border: 1px solid #EDECEA; border-radius: 10px; overflow: hidden; }
+  .auth-stat { background: #fff; padding: 16px 14px; }
+  .auth-stat b { display: block; font-size: 20px; font-weight: 900; letter-spacing: -.5px; }
+  .auth-stat span { display: block; margin-top: 2px; font-size: 12px; color: #7A7772; font-weight: 600; }
+  .auth-side { display: grid; place-items: center; padding: 48px 32px; background: #fff; }
   .auth-card { width: 100%; max-width: 384px; }
-  .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--cream-200); border-radius: var(--r-full); margin-bottom: 22px; }
-  .auth-tab { height: 38px; border-radius: var(--r-full); font-weight: 700; color: var(--ink-3); display: flex; align-items: center; justify-content: center; gap: 7px; transition: background .16s var(--ease), color .16s var(--ease); }
+  .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--cream-200); border-radius: var(--r-sm); margin-bottom: 22px; }
+  .auth-tab { height: 38px; border-radius: var(--r-xs); font-weight: 700; color: var(--ink-3); display: flex; align-items: center; justify-content: center; gap: 7px; transition: background .16s var(--ease), color .16s var(--ease); }
   .auth-tab.is-active { background: #fff; color: var(--ink); box-shadow: var(--sh-1); }
   .pane[hidden] { display: none; }
   .qr-stage { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 14px 0 6px; }
-  .qr-frame { width: 190px; height: 190px; padding: 12px; background: #fff; border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--sh-1); }
+  .qr-frame { width: 190px; height: 190px; padding: 12px; background: #fff; border: 1px solid var(--line-strong); border-radius: var(--r-sm); }
   .agree { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: var(--ink-3); line-height: 1.6; }
   .agree input { width: 16px; height: 16px; accent-color: var(--brand); margin-top: 3px; flex: none; }
+  /* ---- 移动端：移动中心基准（表单大触控、tab 大热区、内容贴近底部拇指区） ---- */
   @media (max-width: 900px) {
-    .auth-wrap { grid-template-columns: 1fr; }
+    .auth-wrap { grid-template-columns: 1fr; align-content: end; }
     .auth-brand { display: none; }
+    .auth-side { place-items: stretch; padding: 24px 20px calc(24px + env(safe-area-inset-bottom)); }
+    .auth-card { max-width: none; }
+    .auth-tab { height: 46px; font-size: 15px; }
+    .qr-frame { width: 170px; height: 170px; }
+    .agree { font-size: 13px; }
+    .agree input { width: 18px; height: 18px; }
   }
 </style>
 </head>
@@ -54,12 +53,12 @@
   <aside class="auth-brand">
     <div class="auth-brand-inner">
       <div class="brand-logo"><span class="logo" id="b-logo"></span><span>SOD</span></div>
-      <h1 class="auth-lead">把你喜欢的东西，<br>变成能贴出去的实体</h1>
-      <p class="auth-sub">上传照片，AI 自动抠图，自己在浏览器里排版。不用买机器、不用凑起订量，做好的贴纸直接送到手边。</p>
-      <div class="auth-points">
-        <div class="auth-point"><i>1</i>一张起订，想做几张做几张</div>
-        <div class="auth-point"><i>2</i>第 5 张只要 5 块 9，做得越多每张越便宜</div>
-        <div class="auth-point"><i>3</i>满 2 张自动包邮</div>
+      <h1 class="auth-lead">想要的样子，<br>贴<em>出来</em>。</h1>
+      <p class="auth-sub">传一张图，做成贴纸。今天下单，最快今天取。</p>
+      <div class="auth-stats">
+        <div class="auth-stat"><b>1 张起做</b><span>没有起订量</span></div>
+        <div class="auth-stat"><b>¥9.9 起</b><span>越多越便宜</span></div>
+        <div class="auth-stat"><b>2 小时可取</b><span>或快递到家</span></div>
       </div>
     </div>
   </aside>
@@ -67,8 +66,8 @@
   <!-- 右：表单 -->
   <main class="auth-side">
     <div class="auth-card">
-      <h2 class="t-h1" style="margin-bottom:6px">欢迎回来</h2>
-      <p class="muted t-sm" style="margin-bottom:24px">登录后继续创作，作品会自动保存</p>
+      <h2 class="t-h1" style="margin-bottom:6px">登录</h2>
+      <p class="muted t-sm" style="margin-bottom:24px">作品自动保存</p>
 
       <div class="auth-tabs" role="tablist">
         <button class="auth-tab is-active" data-pane="wechat" role="tab"><span class="ico"></span>微信登录</button>
@@ -79,17 +78,17 @@
       <section class="pane" id="pane-wechat">
         <div class="qr-stage">
           <div class="qr-frame"><div id="qr-wechat"></div></div>
-          <p class="t-sm muted center">使用微信扫码登录<br><span class="t-tiny">二维码 5 分钟内有效</span></p>
+          <p class="t-sm muted center">微信扫码登录</p>
         </div>
         <div class="notice notice-mint" style="margin:6px 0 14px">
           <span class="notice-icon" id="n-iW"></span>
-          <span>原型演示：没有真实微信授权，点下方按钮即可模拟扫码完成。<b id="wx-credit">新用户登录会送 1 张免运费券</b>。</span>
+          <span><b id="wx-credit">新用户送 1 张免运费券</b></span>
         </div>
         <label class="agree" style="margin-bottom:14px">
           <input type="checkbox" id="agree-wx">
-          <span>我已阅读并同意 <a href="#" class="brand-text">《用户协议》</a> 与 <a href="#" class="brand-text">《隐私政策》</a>（含 AI 抠图上传说明）</span>
+          <span>同意 <a href="#" class="brand-text">《用户协议》</a> 与 <a href="#" class="brand-text">《隐私政策》</a></span>
         </label>
-        <button class="btn btn-primary btn-lg btn-block" id="btn-wx-done">模拟扫码成功</button>
+        <button class="btn btn-primary btn-lg btn-block" id="btn-wx-done">一键登录（演示）</button>
       </section>
 
       <!-- 手机号 -->
@@ -110,17 +109,15 @@
           </div>
           <div class="notice notice-mint">
             <span class="notice-icon" id="n-iP"></span>
-            <span>原型演示：任意 6 位数字均可验证通过。</span>
+            <span>演示环境：任意 6 位数字可验证。</span>
           </div>
           <label class="agree">
             <input type="checkbox" id="agree-phone">
-            <span>我已阅读并同意 <a href="#" class="brand-text">《用户协议》</a> 与 <a href="#" class="brand-text">《隐私政策》</a></span>
+            <span>同意 <a href="#" class="brand-text">《用户协议》</a> 与 <a href="#" class="brand-text">《隐私政策》</a></span>
           </label>
           <button class="btn btn-primary btn-lg btn-block" id="btn-login">登录 / 注册</button>
         </div>
       </section>
-
-      <p class="t-tiny muted center" style="margin-top:20px">首次登录即完成注册，并自动发放 1 张免运费券</p>
     </div>
   </main>
 </div>

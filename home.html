@@ -6,29 +6,27 @@
 <title>创作 · SOD</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/theme-v2.css">
 <style>
-  /* Hero */
+  /* Hero · 大字极简 */
   .hero {
-    position: relative; overflow: hidden;
-    background: linear-gradient(135deg, #FFF6EC 0%, #FFEFE2 52%, #FFE8DC 100%);
-    border: 1px solid #F6DCC6; border-radius: var(--r-xl);
-    padding: 40px 44px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 32px; align-items: center;
-  }
-  .hero::after {
-    content: ''; position: absolute; width: 380px; height: 380px; right: -120px; top: -160px;
-    border-radius: 50%; background: rgba(255, 122, 69, .07);
+    background: #fff;
+    border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: 48px 48px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 32px; align-items: center;
   }
   .hero-inner { position: relative; z-index: 1; }
-  .hero-eyebrow { display: inline-flex; align-items: center; gap: 7px; padding: 5px 13px; border-radius: var(--r-full); background: #fff; color: var(--brand-deep); font-size: 12.5px; font-weight: 700; box-shadow: var(--sh-1); }
-  .hero h1 { font-size: 38px; line-height: 1.24; font-weight: 800; letter-spacing: -.7px; margin: 18px 0 12px; }
-  .hero p { color: var(--ink-2); font-size: 15px; line-height: 1.7; max-width: 460px; }
-  .hero-cta { display: flex; align-items: center; gap: 14px; margin-top: 26px; flex-wrap: wrap; }
-  .hero-price { display: flex; gap: 22px; margin-top: 26px; padding-top: 20px; border-top: 1px dashed #E8CDB4; flex-wrap: wrap; }
+  .hero-eyebrow { display: inline-flex; align-items: center; gap: 7px; padding: 4px 12px; border-radius: var(--r-xs); background: var(--cream-200); color: var(--ink-2); font-size: 12.5px; font-weight: 700; }
+  .hero h1 { font-size: clamp(36px, 4.5vw, 52px); line-height: 1.14; font-weight: 900; letter-spacing: -1.4px; margin: 20px 0 14px; }
+  .hero h1 em { font-style: normal; color: var(--brand); }
+  .hero p { color: var(--ink-3); font-size: 16px; line-height: 1.7; max-width: 460px; }
+  .hero-cta { display: flex; align-items: center; gap: 14px; margin-top: 28px; flex-wrap: wrap; }
+  .hero-price { display: flex; gap: 24px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); flex-wrap: wrap; }
   .hero-price-item { display: flex; flex-direction: column; gap: 1px; }
   .hero-price-item .k { font-size: 12px; color: var(--ink-3); font-weight: 600; }
-  .hero-price-item .v { font-size: 17px; font-weight: 800; color: var(--brand-deep); }
+  .hero-price-item .v { font-size: 17px; font-weight: 800; color: var(--ink); }
+  .hero-price-item .v.brand-text { color: var(--brand); }
   .hero-art { position: relative; z-index: 1; }
-  .hero-art img { width: 100%; border-radius: var(--r-lg); box-shadow: var(--sh-3); transform: rotate(1.6deg); }
+  .hero-art img { width: 100%; border-radius: var(--r-md); transform: rotate(1.6deg); border: 1px solid var(--line); }
 
   /* Section */
   .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
@@ -36,12 +34,24 @@
   .work-card .thumb { border-radius: 0; border: 0; border-bottom: 1px solid var(--line); }
   .work-body { padding: 13px 15px; }
   .order-row {
-    display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: var(--r-md);
-    background: var(--cream-50); border: 1px solid var(--line); width: 100%; text-align: left;
-    transition: border-color .16s var(--ease), background .16s var(--ease);
+    display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--r-sm);
+    background: #fff; border: 1px solid var(--line); width: 100%; text-align: left;
+    transition: border-color .16s var(--ease);
   }
-  .order-row:hover { border-color: var(--line-strong); background: #fff; }
-  @media (max-width: 1000px) { .hero { grid-template-columns: 1fr; } .hero-art { display: none; } }
+  .order-row:hover { border-color: var(--ink); }
+
+  /* ---- 移动端：移动中心基准（hero 大字、价格条横滑、卡片单列） ---- */
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: 1fr; padding: 28px 20px; border: 0; border-radius: 0; margin: 0 -16px; } /* 负 margin 出血 */
+    .hero-art { display: none; }
+    .hero h1 { font-size: 34px; letter-spacing: -1px; margin: 14px 0 10px; }
+    .hero p { font-size: 14.5px; }
+    .hero-cta { margin-top: 20px; }
+    .hero-cta .t-sm { display: none; } /* 副话术让位，一屏一主信息 */
+    .hero-cta .btn-xl { width: 100%; }    .hero-price { gap: 16px 20px; margin-top: 22px; padding-top: 16px; }
+    .order-row { padding: 12px; }
+  }
+  @media (max-width: 1000px) and (min-width: 761px) { .hero { grid-template-columns: 1fr; } .hero-art { display: none; } }
 </style>
 </head>
 <body>
@@ -51,19 +61,19 @@
   <!-- Hero -->
   <section class="hero">
     <div class="hero-inner">
-      <span class="hero-eyebrow"><span id="h-eyebrow"></span>AI 抠图 · 自己排 · 送货上门</span>
-      <h1>把你喜欢的东西，<br>变成能贴出去的实体</h1>
-      <p>上传照片，AI 自动抠图，剩下的排版交给你。不用买 1500 元的机器，也不用凑起订量——一张就印，照张数累进计价。</p>
+      <span class="hero-eyebrow"><span id="h-eyebrow"></span>AI 抠图 · 自己排 · 今天可取</span>
+      <h1>想要的样子，<br><em>贴</em>出来。</h1>
+      <p>传一张图，做成贴纸。一张起做，做完到店取或快递到家。</p>
       <div class="hero-cta">
         <a class="btn btn-primary btn-xl" href="editor.html">
-          <span class="ico"></span><span id="h-cta">开始 DIY</span>
+          <span class="ico"></span><span id="h-cta">开始做贴纸</span>
         </a>
-        <span class="t-sm muted">做完一张再接着做下一张，一起结算更便宜</span>
+        <span class="t-sm muted">做完一张再接着做，一起结算更便宜</span>
       </div>
       <div class="hero-price">
-        <div class="hero-price-item"><span class="k">第 1–2 张</span><span class="v">9.9 元 / 张</span></div>
-        <div class="hero-price-item"><span class="k">第 3–4 张</span><span class="v">7.9 元 / 张</span></div>
-        <div class="hero-price-item"><span class="k">第 5 张起</span><span class="v brand-text">5.9 元 / 张</span></div>
+        <div class="hero-price-item"><span class="k">第 1–2 张</span><span class="v">¥9.9</span></div>
+        <div class="hero-price-item"><span class="k">第 3–4 张</span><span class="v">¥7.9</span></div>
+        <div class="hero-price-item"><span class="k">第 5 张起</span><span class="v brand-text">¥5.9</span></div>
         <div class="hero-price-item"><span class="k">运费</span><span class="v">满 2 张包邮</span></div>
       </div>
     </div>
@@ -138,8 +148,8 @@
   var draftArea = $('#draft-area');
   if (!drafts.length) {
     draftArea.innerHTML = '<div class="card">' + UI.empty('works', '还没有草稿',
-      '点上面的「开始 DIY」，上传一张照片就能开始。没做完也没关系，随时可以存草稿。',
-      '<a class="btn btn-primary" href="editor.html">开始 DIY</a>') + '</div>';
+      '上传一张照片就能开始，随时存草稿。',
+      '<a class="btn btn-primary" href="editor.html">开始做贴纸</a>') + '</div>';
   } else {
     draftArea.innerHTML = '<div class="grid grid-3">' + drafts.slice(0, 3).map(function (w) {
       return '<a class="card card-hover work-card" href="editor.html?work=' + w.id + '">' +
@@ -158,8 +168,8 @@
   });
   var orderArea = $('#order-area');
   if (!active.length) {
-    orderArea.innerHTML = '<div class="card">' + UI.empty('order', '还没有进行中的订单',
-      '做完作品加入结算袋，就能下单了。') + '</div>';
+    orderArea.innerHTML = '<div class="card">' + UI.empty('order', '暂无进行中的订单',
+      '作品加入结算袋，就能下单。') + '</div>';
   } else {
     var actionText = { pending: '去支付', making: '查看详情', shipped: '查看物流' };
     orderArea.innerHTML = '<div class="stack gap-8">' + active.map(function (o) {

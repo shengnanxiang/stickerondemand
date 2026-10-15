@@ -6,24 +6,31 @@
 <title>订单详情 · SOD</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/theme-v2.css">
 <style>
   .od-item { display: flex; gap: 14px; padding: 12px 0; align-items: center; }
   .od-item + .od-item { border-top: 1px solid var(--line); }
-  /* 自提单取货码卡 */
+  /* 自提单取货码卡 · 大字极简强化 */
   .od-pickup-code {
-    font-size: 40px; font-weight: 800; letter-spacing: 10px; text-indent: 10px; line-height: 1.15;
-    color: var(--brand-deep); font-variant-numeric: tabular-nums; text-align: center;
+    font-size: 56px; font-weight: 900; letter-spacing: 14px; text-indent: 14px; line-height: 1.1;
+    color: var(--ink); font-variant-numeric: tabular-nums; text-align: center;
   }
   .od-pickup-box {
-    margin-top: 12px; padding: 18px 16px 14px; border-radius: var(--r-md);
-    border: 2px dashed var(--brand); background: var(--brand-soft); text-align: center;
+    margin-top: 12px; padding: 22px 16px 18px; border-radius: var(--r-sm);
+    border: 2px solid var(--ink); background: #fff; text-align: center;
   }
-  .od-pickup-sub { font-size: 12px; color: var(--ink-3); margin-top: 6px; text-align: center; }
+  .od-pickup-sub { font-size: 12.5px; color: var(--ink-3); margin-top: 8px; text-align: center; }
   .od-pickup-store {
-    margin-top: 10px; padding: 10px 14px; border-radius: var(--r-sm);
-    background: rgba(255, 255, 255, .7); font-size: 13px; line-height: 1.7; color: var(--ink-2);
+    margin-top: 12px; padding: 12px 14px; border-radius: var(--r-xs);
+    background: var(--cream-200); font-size: 13px; line-height: 1.7; color: var(--ink-2);
   }
   .od-pickup-store b { color: var(--ink); }
+  /* ---- 移动端 App 式专项（配合 theme-v2 全局段） ---- */
+  @media (max-width: 760px) {
+    .od-pickup-code { font-size: 48px; letter-spacing: 12px; text-indent: 12px; }
+    .od-pickup-box { padding: 18px 12px 14px; }
+    .od-pickup-store { font-size: 12.5px; }
+  }
 </style>
 </head>
 <body>
@@ -49,21 +56,21 @@
   var order = null;
 
   var FLOW_EXPRESS = [
-    { k: 'pending',  t: '待支付', d: '提交订单，等待付款', f: 'createdAt' },
-    { k: 'paid',     t: '已支付', d: '等待供应商接单',     f: 'paidAt' },
-    { k: 'accepted', t: '已接单', d: '供应商确认排产',     f: 'acceptedAt' },
-    { k: 'making',   t: '制作中', d: '印刷模切进行中',     f: 'madeAt' },
-    { k: 'shipped',  t: '已发货', d: '快递已揽收',         f: 'shippedAt' },
-    { k: 'done',     t: '已完成', d: '已签收',             f: 'doneAt' }
+    { k: 'pending',  t: '待支付', d: '', f: 'createdAt' },
+    { k: 'paid',     t: '已支付', d: '等待接单', f: 'paidAt' },
+    { k: 'accepted', t: '已接单', d: '', f: 'acceptedAt' },
+    { k: 'making',   t: '制作中', d: '', f: 'madeAt' },
+    { k: 'shipped',  t: '已发货', d: '', f: 'shippedAt' },
+    { k: 'done',     t: '已完成', d: '', f: 'doneAt' }
   ];
   /* 自提单时间线：shipped 节点语境为「已制作完成·待到店自提」 */
   var FLOW_PICKUP = [
-    { k: 'pending',  t: '待支付', d: '提交订单，等待付款', f: 'createdAt' },
-    { k: 'paid',     t: '已支付', d: '等待门店接单',       f: 'paidAt' },
-    { k: 'accepted', t: '已接单', d: '门店确认排产',       f: 'acceptedAt' },
-    { k: 'making',   t: '制作中', d: '印刷模切进行中',     f: 'madeAt' },
-    { k: 'shipped',  t: '已制作完成', d: '待到店自提',     f: 'shippedAt' },
-    { k: 'done',     t: '已完成', d: '已凭取货码领取',     f: 'doneAt' }
+    { k: 'pending',  t: '待支付', d: '', f: 'createdAt' },
+    { k: 'paid',     t: '已支付', d: '等待门店接单', f: 'paidAt' },
+    { k: 'accepted', t: '已接单', d: '', f: 'acceptedAt' },
+    { k: 'making',   t: '制作中', d: '', f: 'madeAt' },
+    { k: 'shipped',  t: '制作完成', d: '待自提', f: 'shippedAt' },
+    { k: 'done',     t: '已完成', d: '已取件', f: 'doneAt' }
   ];
   var flowIdx = { pending: 0, paid: 1, accepted: 2, making: 3, shipped: 4, done: 5, aftersale: 5 };
 
@@ -89,7 +96,7 @@
     if (order.status === 'closed') {
       return '<div class="notice notice-danger" style="display:flex;gap:10px">' +
         '<span class="notice-icon">' + UI.icon('alert') + '</span>' +
-        '<span><b>订单已关闭</b><br>超过支付时限未完成付款，可以重新下单。</span></div>';
+        '<span><b>订单已关闭</b> · 超时未支付</span></div>';
     }
     var FLOW = isPickup(order) ? FLOW_PICKUP : FLOW_EXPRESS;
     var cur = flowIdx[order.status];
@@ -103,7 +110,7 @@
     }).join('') + '</div>' +
     (order.status === 'aftersale' ? '<div class="notice notice-danger mt-12" style="display:flex;gap:10px">' +
       '<span class="notice-icon">' + UI.icon('alert') + '</span>' +
-      '<span><b>售后处理中</b><br>供应商正在跟进你的售后申请，处理结果会显示在订单状态里。</span></div>' : '');
+      '<span><b>售后处理中</b></span></div>' : '');
   }
 
   function actions() {
@@ -114,7 +121,7 @@
     if (order.status === 'shipped' && isPickup(order)) {
       return '<div class="notice notice-mint" style="display:flex;gap:10px">' +
         '<span class="notice-icon">' + UI.icon('check') + '</span>' +
-        '<span><b>制作完成，可以取货了</b><br>凭页面上的取货码到门店领取。</span></div>';
+        '<span><b>可以取了</b> · 凭取货码到店</span></div>';
     }
     if (order.status === 'shipped') {
       return '<a class="btn btn-primary btn-block" href="logistics.html?id=' + order.id + '">查看物流</a>' +
@@ -127,14 +134,14 @@
     if (order.status === 'aftersale') {
       return '<div class="notice notice-sun" style="display:flex;gap:10px">' +
         '<span class="notice-icon">' + UI.icon('info') + '</span>' +
-        '<span>售后处理中，供应商会尽快给出结果。</span></div>';
+        '<span>售后处理中</span></div>';
     }
     if (order.status === 'closed') {
       return '<button class="btn btn-primary btn-block" data-again>重新下单</button>';
     }
     return '<div class="notice notice-mint" style="display:flex;gap:10px">' +
       '<span class="notice-icon">' + UI.icon('info') + '</span>' +
-      '<span>' + (isPickup(order) ? '正在排产，完成后即可凭取货码到店领取。' : '正在排产，完成后会发货。') + '</span></div>';
+      '<span>' + (isPickup(order) ? '制作中，完成后凭码到店取。' : '制作中，完成后发货。') + '</span></div>';
   }
 
   /* 自提单取货码卡（代替物流区块） */
@@ -144,14 +151,13 @@
     var rt = new Date(readyAtOf(order));
     var readyTxt = (rt.getMonth() + 1) + '-' + rt.getDate() + ' ' + rt.getHours() + ':' + (rt.getMinutes() < 10 ? '0' : '') + rt.getMinutes();
     return '<div class="card card-pad mt-16">' +
-      '<div class="row between"><span class="t-h3">到店自提</span>' +
-      '<span class="pill pill-brand">免运费</span></div>' +
+      '<div class="row between"><span class="t-h3">到店自提</span></div>' +
       '<div class="od-pickup-box">' +
         '<div class="t-tiny strong muted" style="letter-spacing:3px">取货码</div>' +
         '<div class="od-pickup-code">' + pickupCodeOf(order) + '</div>' +
-        '<div class="od-pickup-sub">向店员出示此码领取 · 预计可取 ' + readyTxt + '</div>' +
-        '<div class="od-pickup-store"><b>' + UI.escapeHtml(store.name) + '</b><br>' +
-          UI.escapeHtml(store.address) + ' · 营业时间 ' + UI.escapeHtml(store.openHours) + '</div>' +
+        '<div class="od-pickup-sub">' + readyTxt + ' 后可取</div>' +
+        '<div class="od-pickup-store"><b>' + UI.escapeHtml(store.name) + '</b> · ' + UI.escapeHtml(store.openHours) + '<br>' +
+          UI.escapeHtml(store.address) + '</div>' +
       '</div>' +
     '</div>';
   }
@@ -160,8 +166,8 @@
     if (!loadOrder()) { location.href = 'orders.html'; return; }
     $('#page').innerHTML =
       '<div class="row gap-12 mb-16">' +
-        '<a class="btn btn-ghost btn-sm" href="orders.html"><span class="ico" id="i-b"></span>我的订单</a>' +
-        '<span class="pill pill-mint" id="live-pill" hidden><span class="dot"></span>&nbsp;实时同步中</span>' +
+        '<a class="btn btn-ghost btn-sm" href="orders.html"><span class="ico" id="i-b"></span>订单</a>' +
+        '<span class="pill pill-mint" id="live-pill" hidden><span class="dot"></span>&nbsp;实时</span>' +
       '</div>' +
 
       '<div class="card card-pad">' +
@@ -189,7 +195,7 @@
       '<div class="card card-pad mt-16">' +
         (isPickup(order)
           ? '<span class="t-h3">取货信息</span>' +
-            '<div class="mt-8"><div class="t-sm muted">自提订单无需收货地址，凭取货码到门店领取。</div></div>'
+            '<div class="mt-8"><div class="t-sm muted">凭取货码到店自提。</div></div>'
           : '<span class="t-h3">收货信息</span>' +
         '<div class="mt-8">' +
           '<div class="t-sm strong">' + UI.escapeHtml(order.address.name) + ' ' +
@@ -215,10 +221,10 @@
       '<div class="card card-pad mt-16">' +
         '<span class="t-h3">结算明细</span>' +
         '<div class="mt-12">' +
-          '<div class="price-row"><span class="k">商品小计（共 ' + order.n + ' 张）</span>' +
+          '<div class="price-row"><span class="k">共 ' + order.n + ' 张）</span>' +
           '<span class="v">' + Pricing.fmtYuan(order.subtotal || Pricing.quote(order.n).subtotal) + '</span></div>' +
           '<div class="price-row mt-8"><span class="k">运费</span>' +
-          '<span class="v">' + (isPickup(order) ? '免运费（自提）' : ((order.shipping || 0) === 0 ? '包邮' : Pricing.fmtYuan(order.shipping))) + '</span></div>' +
+          '<span class="v">' + (isPickup(order) ? '免（自提）' : ((order.shipping || 0) === 0 ? '包邮' : Pricing.fmtYuan(order.shipping))) + '</span></div>' +
           (order.couponDiscount ? '<div class="price-row mt-8 is-discount">' +
             '<span class="k">' + (order.couponType === 'freeship' ? '免运费券' : '通用券') + '</span>' +
             '<span class="v">' + Pricing.fmtSigned(-order.couponDiscount) + '</span></div>' : '') +

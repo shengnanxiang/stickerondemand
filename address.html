@@ -6,10 +6,18 @@
 <title>地址管理 · SOD</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/theme-v2.css">
 <style>
   .addr-item { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; }
   .addr-item + .addr-item { border-top: 1px solid var(--line); }
-  .addr-item.is-default .adr-name { color: var(--brand-deep); }
+  .addr-item.is-default .adr-name { color: var(--brand); }
+  /* 移动端：地址卡操作按钮下移成整行（大触控），姓名电话换行友好 */
+  @media (max-width: 760px) {
+    .addr-item { flex-direction: column; gap: 10px; }
+    .addr-item .row.gap-8 { flex-wrap: wrap; }
+    .addr-actions { display: flex; gap: 8px; width: 100%; }
+    .addr-actions .btn-xs { flex: 1; height: 34px; font-size: 13px; }
+  }
 </style>
 </head>
 <body>
@@ -76,8 +84,8 @@
   function render() {
     var list = Store.addresses.all();
     if (!list.length) {
-      $('#addr-list').innerHTML = '<div class="card">' + UI.empty('truck', '还没有收货地址',
-        '添加一个地址，下单时就能直接选。',
+      $('#addr-list').innerHTML = '<div class="card">' + UI.empty('truck', '还没有地址',
+        '添加一个，下单时直接选。',
         '<button class="btn btn-primary" id="empty-add">新增地址</button>') + '</div>';
       var ea = $('#empty-add');
       if (ea) ea.addEventListener('click', function () { openForm(null); });
@@ -93,9 +101,11 @@
           '</div>' +
           '<div class="t-sm muted mt-4">' + UI.escapeHtml(a.region + ' ' + a.detail) + '</div>' +
         '</div>' +
-        '<button class="btn btn-ghost btn-xs" data-use="' + a.id + '">选它</button>' +
-        '<button class="btn btn-outline btn-xs" data-edit="' + a.id + '">编辑</button>' +
-        '<button class="btn btn-danger btn-xs" data-del="' + a.id + '">删除</button>' +
+        '<div class="addr-actions">' +
+          '<button class="btn btn-ghost btn-xs" data-use="' + a.id + '">选它</button>' +
+          '<button class="btn btn-outline btn-xs" data-edit="' + a.id + '">编辑</button>' +
+          '<button class="btn btn-danger btn-xs" data-del="' + a.id + '">删除</button>' +
+        '</div>' +
       '</div>';
     }).join('') + '</div>';
 

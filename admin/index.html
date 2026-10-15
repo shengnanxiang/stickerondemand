@@ -16,37 +16,37 @@
   --cream-100: #FDF7EE;
   --cream-200: #F8EFE3;
   --cream-300: #F1E5D6;
-  --line:        #ECE1D4;
-  --line-strong: #DCCDBA;
-  --ink:   #302A24;
-  --ink-2: #5E554C;
-  --ink-3: #8D8277;
-  --ink-4: #B5AA9E;
-  --brand:      #FF7A45;
-  --brand-dark: #EF5E29;
-  --brand-deep: #C74A1B;
-  --brand-soft: #FFEDE3;
-  --mint:      #45B492;
-  --mint-soft: #E4F5EF;
-  --sky:       #5B9FD6;
-  --sky-soft:  #E7F1FA;
-  --grape:     #9C7CE0;
-  --grape-soft:#F1EBFC;
-  --sun:       #EFB33F;
-  --sun-soft:  #FDF2DC;
-  --danger:      #DE5F49;
-  --danger-soft: #FCEAE6;
-  --r-sm: 10px;
-  --r-md: 14px;
-  --r-lg: 20px;
+  --line:        #EDECEA;
+  --line-strong: #DDDBD7;
+  --ink:   #111110;
+  --ink-2: #3E3C39;
+  --ink-3: #7A7772;
+  --ink-4: #AEABA5;
+  --brand:      #FF4D00;
+  --brand-dark: #E64500;
+  --brand-deep: #C23C00;
+  --brand-soft: #FFF1EA;
+  --mint:      #0F9960;
+  --mint-soft: #E8F6EF;
+  --sky:       #2563EB;
+  --sky-soft:  #EDF3FE;
+  --grape:     #7C5CE0;
+  --grape-soft:#F1EDFC;
+  --sun:       #C98A00;
+  --sun-soft:  #FAF3E2;
+  --danger:      #D93025;
+  --danger-soft: #FCEDEB;
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 12px;
   --r-full: 999px;
-  --sh-1: 0 1px 2px rgba(94,66,40,.05), 0 2px 6px rgba(94,66,40,.04);
-  --sh-2: 0 4px 14px rgba(94,66,40,.07), 0 1px 3px rgba(94,66,40,.05);
+  --sh-1: 0 1px 2px rgba(17,17,16,.04);
+  --sh-2: 0 3px 12px rgba(17,17,16,.06);
   --ease: cubic-bezier(.22,.68,.32,1);
 }
 *, *::before, *::after { box-sizing: border-box; }
 body {
-  margin: 0; background: var(--cream-100); color: var(--ink);
+  margin: 0; background: #fff; color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
                "Hiragino Sans GB", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased;
@@ -63,11 +63,10 @@ img, svg { display: block; max-width: 100%; }
   padding: 18px 0 20px;
 }
 .topbar .logo {
-  width: 40px; height: 40px; border-radius: 13px; flex: none;
-  background: linear-gradient(140deg, #FF9257, #EC5A24);
+  width: 40px; height: 40px; border-radius: 10px; flex: none;
+  background: var(--ink);
   display: grid; place-items: center; color: #fff;
   font-size: 15px; font-weight: 800; letter-spacing: .5px;
-  box-shadow: 0 6px 18px rgba(255,122,69,.26);
 }
 .topbar h1 { font-size: 20px; font-weight: 800; letter-spacing: .3px; }
 .topbar .sub { font-size: 12.5px; color: var(--ink-3); margin-top: 1px; }

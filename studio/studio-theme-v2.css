@@ -1,0 +1,76 @@
+/* ============================================================
+   studio-theme-v2 · 供应端工作台 · 大字极简风对齐层
+   ────────────────────────────────────────────────────────────
+   ⚠️ 视觉层覆盖，禁止改布局结构（工作台密度优先，不做大字排版、
+      不做移动端重设计——桌面工具场景）。
+   引用：在 studio.css 之后挂载。只对齐色板/字体气质到 theme-v2 体系。
+   ============================================================ */
+
+/* 设计令牌对齐（与用户端 theme-v2 同源） */
+:root {
+  --cream-50:  #FFFFFF;
+  --cream-100: #FFFFFF;
+  --cream-200: #F5F4F2;
+  --cream-300: #EBEAE7;
+  --line:        #EDECEA;
+  --line-strong: #DDDBD7;
+  --ink:   #111110;
+  --ink-2: #3E3C39;
+  --ink-3: #7A7772;
+  --ink-4: #AEABA5;
+  --brand:      #FF4D00;
+  --brand-dark: #E64500;
+  --brand-deep: #C23C00;
+  --brand-soft: #FFF1EA;
+  --brand-ring: rgba(255, 77, 0, .22);
+  --mint:      #0F9960;
+  --mint-soft: #E8F6EF;
+  --sky:       #2563EB;
+  --sky-soft:  #EDF3FE;
+  --grape:     #7C5CE0;
+  --grape-soft:#F1EDFC;
+  --sun:       #C98A00;
+  --sun-soft:  #FAF3E2;
+  --danger:      #D93025;
+  --danger-soft: #FCEDEB;
+  --r-sm: 8px; --r-md: 10px; --r-lg: 12px;
+  --sh-1: 0 1px 2px rgba(17, 17, 16, .04);
+  --sh-2: 0 3px 12px rgba(17, 17, 16, .06);
+  --sh-3: 0 12px 40px rgba(17, 17, 16, .12);
+  --sh-brand: none;
+}
+
+body { font-size: 14.5px; }
+
+/* 登录页渐变背景 → 纯白 + 墨色 hero */
+.biz-login-bg {
+  background: #fff !important;
+}
+.biz-login-bg .radial-gradient, .biz-login-bg::before, .biz-login-bg::after { display: none; }
+
+/* 工作台壳 */
+.biz-app { background: #fff; }
+.biz-side { border-right: 1px solid var(--line); }
+.biz-brand .logo { background: var(--ink); border-radius: 8px; }
+.biz-shop-card { background: var(--brand-soft); border-color: transparent; }
+.biz-shop-card .shop-name, .biz-shop-card .shop-id { color: var(--brand-deep); }
+
+/* 统计卡数字色（对齐降饱和功能色） */
+.biz-stat.is-mint .num { color: var(--mint); }
+.biz-stat.is-sky .num { color: var(--sky); }
+
+/* 组件气质对齐：方角、去影 */
+.card { box-shadow: none; }
+.btn-primary { background: var(--brand); }
+.btn-primary:hover { background: var(--brand-dark); }
+.btn { border-radius: var(--r-sm); }
+.pill { border-radius: 6px; }
+.pill-brand { color: var(--brand); }
+.tabs { border-radius: var(--r-sm); }
+.tab.is-active { outline: 1px solid var(--line-strong); box-shadow: none; }
+
+/* toast / modal */
+.toast { background: var(--ink); }
+.toast.ok { background: var(--mint); }
+.toast.err { background: var(--danger); }
+.modal-foot { background: var(--cream-200); }

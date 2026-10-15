@@ -6,18 +6,27 @@
 <title>我的订单 · SOD</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/theme-v2.css">
 <style>
   .o-card { padding: 16px 18px; }
-  .o-head { display: flex; align-items: center; gap: 10px; }
+  .o-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .o-note { font-size: 12.5px; color: var(--ink-3); }
   .o-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
   /* 自提单取货码徽标 */
   .o-pickup {
     display: inline-flex; align-items: baseline; gap: 6px; margin-top: 6px;
-    padding: 4px 10px; border-radius: var(--r-full); background: var(--brand-soft);
-    font-size: 12px; color: var(--brand-deep); font-weight: 700;
+    padding: 4px 10px; border-radius: var(--r-xs); background: var(--brand-soft);
+    font-size: 12px; color: var(--brand); font-weight: 700;
   }
   .o-pickup b { font-size: 15px; letter-spacing: 2px; font-variant-numeric: tabular-nums; }
+  /* 移动端：tab 横滑、卡片动作按钮全宽 */
+  @media (max-width: 760px) {
+    .tabs { display: flex; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .tabs .tab { flex: none; padding: 8px 14px; }
+    .o-actions { flex-direction: column; }
+    .o-actions .btn-sm { width: 100%; }
+    .o-note { font-size: 11.5px; }
+  }
 </style>
 </head>
 <body>
@@ -81,17 +90,17 @@
   }
 
   function statusNote(o) {
-    if (o.status === 'pending') return '超时未支付会自动关闭，记得完成付款';
-    if (o.status === 'paid') return o.deliveryMethod === 'pickup' ? '已支付，等待门店接单' : '已支付，等待供应商接单';
-    if (o.status === 'accepted') return o.deliveryMethod === 'pickup' ? '门店已接单，即将开始制作' : '供应商已接单，即将开始制作';
-    if (o.status === 'making') return '已送达厂商，预计 2 个工作日内完成';
+    if (o.status === 'pending') return '记得完成付款';
+    if (o.status === 'paid') return o.deliveryMethod === 'pickup' ? '等待门店接单' : '等待接单';
+    if (o.status === 'accepted') return '已接单，即将制作';
+    if (o.status === 'making') return '制作中';
     if (o.status === 'shipped')
       return o.deliveryMethod === 'pickup'
-        ? '已制作完成，凭取货码到门店领取'
-        : '快递在路上，签收后订单完成';
-    if (o.status === 'done') return o.deliveryMethod === 'pickup' ? '已取货完成，欢迎再来' : '已完成，欢迎再来';
-    if (o.status === 'aftersale') return '售后处理中，供应商会尽快跟进';
-    if (o.status === 'closed') return '订单已关闭（超时未支付）';
+        ? '可以取了'
+        : '快递在路上';
+    if (o.status === 'done') return o.deliveryMethod === 'pickup' ? '已取货' : '已完成';
+    if (o.status === 'aftersale') return '售后处理中';
+    if (o.status === 'closed') return '已关闭（超时未支付）';
     return '';
   }
 
@@ -112,8 +121,8 @@
 
     if (!list.length) {
       $('#order-area').innerHTML = '<div class="card">' + UI.empty('order',
-        filter === 'all' ? '还没有订单' : '这里还没有订单',
-        filter === 'all' ? '做完设计加入结算袋，就能下单了。' : '',
+        filter === 'all' ? '还没有订单' : '暂无此类订单',
+        filter === 'all' ? '作品加入结算袋即可下单。' : '',
         '<a class="btn btn-primary" href="editor.html">去做一张贴纸</a>') + '</div>';
       return;
     }

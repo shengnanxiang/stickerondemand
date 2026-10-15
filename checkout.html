@@ -6,52 +6,60 @@
 <title>确认订单 · SOD</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/theme-v2.css">
 <style>
-  .ck-layout { display: grid; grid-template-columns: minmax(0,1fr) 340px; gap: 24px; align-items: start; }
+  .ck-layout { display: grid; grid-template-columns: minmax(0,1fr) 360px; gap: 28px; align-items: start; }
   @media (max-width: 960px) { .ck-layout { grid-template-columns: 1fr; } }
   .summary-sticky { position: sticky; top: calc(var(--nav-h) + 20px); }
   .addr-card {
-    display: block; width: 100%; text-align: left; padding: 14px 16px; border-radius: var(--r-md);
+    display: block; width: 100%; text-align: left; padding: 16px; border-radius: var(--r-sm);
     border: 1.5px solid var(--line-strong); background: #fff; transition: border-color .16s var(--ease), background .16s var(--ease);
   }
-  .addr-card.is-active { border-color: var(--brand); background: var(--brand-soft); }
+  .addr-card.is-active { border-color: var(--ink); }
   .ck-item { display: flex; gap: 14px; padding: 12px 0; align-items: center; }
   .ck-item + .ck-item { border-top: 1px solid var(--line); }
   .coupon-card {
     display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
-    padding: 14px 16px; border-radius: var(--r-md); border: 1.5px solid var(--line-strong); background: #fff;
+    padding: 14px 16px; border-radius: var(--r-sm); border: 1.5px solid var(--line-strong); background: #fff;
     transition: border-color .16s var(--ease), background .16s var(--ease);
   }
-  .coupon-card.is-active { border-color: var(--brand); background: var(--brand-soft); }
-  .coupon-card[disabled] { opacity: .55; background: var(--cream-100); }
+  .coupon-card.is-active { border-color: var(--ink); }
+  .coupon-card[disabled] { opacity: .45; background: var(--cream-200); }
   .coupon-amount { width: 64px; flex: none; text-align: center; color: var(--brand); }
-  .coupon-amount b { font-size: 22px; font-weight: 800; line-height: 1; }
+  .coupon-amount b { font-size: 22px; font-weight: 900; line-height: 1; }
   /* 配送方式双卡（自提 / 快递） */
   .dm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   @media (max-width: 560px) { .dm-grid { grid-template-columns: 1fr; } }
   .dm-card {
     display: flex; gap: 12px; align-items: flex-start; text-align: left;
-    padding: 14px 16px; border-radius: var(--r-md); border: 1.5px solid var(--line-strong); background: #fff;
+    padding: 16px; border-radius: var(--r-sm); border: 1.5px solid var(--line-strong); background: #fff;
     transition: border-color .16s var(--ease), background .16s var(--ease);
   }
-  .dm-card.is-active { border-color: var(--brand); background: var(--brand-soft); }
+  .dm-card.is-active { border-color: var(--ink); }
   .dm-radio {
     width: 20px; height: 20px; border-radius: 50%; flex: none; margin-top: 2px;
     border: 2px solid var(--line-strong); background: #fff; transition: border-color .16s var(--ease), box-shadow .16s var(--ease);
   }
-  .dm-card.is-active .dm-radio { border-color: var(--brand); box-shadow: inset 0 0 0 5px var(--brand); }
-  .dm-title { font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .dm-desc { font-size: 12.5px; line-height: 1.6; color: var(--ink-3); margin-top: 4px; }
-  .dm-store { font-size: 12.5px; line-height: 1.6; color: var(--ink-2); margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); }
-  .dm-tag { padding: 1px 8px; border-radius: var(--r-full); font-size: 11px; font-weight: 700; background: var(--mint-soft); color: #2F7E65; }
+  .dm-card.is-active .dm-radio { border-color: var(--ink); box-shadow: inset 0 0 0 5px var(--ink); }
+  .dm-title { font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .dm-desc { font-size: 13px; line-height: 1.6; color: var(--ink-3); margin-top: 4px; }
+  .dm-store { font-size: 13px; line-height: 1.6; color: var(--ink-2); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .dm-store .dm-store-sub { color: var(--ink-3); } /* 移动端折叠的次要信息 */
+  .dm-tag { padding: 1px 8px; border-radius: var(--r-xs); font-size: 11.5px; font-weight: 800; background: var(--brand); color: #fff; letter-spacing: .3px; }
   .dm-tag.is-fee { background: var(--cream-200); color: var(--ink-2); }
   .addr-hide { display: none; }
+  /* ---- 移动端 App 式（依赖 theme-v2 全局段，这里补页内专项） ---- */
+  @media (max-width: 760px) {
+    .dm-store .dm-store-sub { display: none; } /* 移动端只留店名，地址/营业时间进详情 */
+    .summary-sticky { position: static; }
+    .ck-layout { gap: 16px; }
+  }
   .hook-bar {
-    display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: var(--r-md);
-    background: var(--brand-soft); border: 1px dashed #FFC4A6; color: var(--brand-deep);
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--r-sm);
+    background: var(--cream-200); color: var(--ink-2);
     font-size: 13px; font-weight: 700; line-height: 1.4;
   }
-  .hook-bar.is-weak { background: var(--cream-100); border-color: var(--line-strong); color: var(--ink-2); }
+  .hook-bar.is-weak { background: var(--cream-200); color: var(--ink-3); }
 </style>
 </head>
 <body>
@@ -59,7 +67,7 @@
 
 <main class="container page">
   <div class="row gap-12 mb-16">
-    <a class="btn btn-ghost btn-sm" href="bag.html"><span class="ico"></span>返回结算袋</a>
+    <a class="btn btn-ghost btn-sm" href="bag.html"><span class="ico"></span>返回</a>
     <h1 class="t-h1">确认订单</h1>
   </div>
 
@@ -68,23 +76,22 @@
       <!-- 配送方式（自提 / 快递，默认自提） -->
       <div class="card card-pad">
         <div class="row between mb-12">
-          <span class="t-h3">配送方式</span>
-          <span class="t-tiny muted">自提免运费，今日下单今日可取</span>
+          <span class="t-h3">怎么拿货</span>
         </div>
         <div class="dm-grid">
           <button class="dm-card" data-dm="pickup" id="dm-pickup" type="button">
             <span class="dm-radio"></span>
             <span class="col grow">
               <span class="dm-title">到店自提 <span class="dm-tag">免运费</span></span>
-              <span class="dm-desc">制作完成后凭取货码到店领取，预计 <b id="dm-ready">2 小时后</b> 可取</span>
+              <span class="dm-desc"><b id="dm-ready">2 小时后</b> 可取</span>
               <span class="dm-store" id="dm-store"></span>
             </span>
           </button>
           <button class="dm-card" data-dm="express" id="dm-express" type="button">
             <span class="dm-radio"></span>
             <span class="col grow">
-              <span class="dm-title">快递配送 <span class="dm-tag is-fee">1 张收 5 元 · 满 2 张包邮</span></span>
-              <span class="dm-desc">48 小时内送达，发货后可在订单页查看物流</span>
+              <span class="dm-title">快递到家 <span class="dm-tag is-fee">满 2 张包邮</span></span>
+              <span class="dm-desc">48 小时内送达</span>
             </span>
           </button>
         </div>
@@ -94,7 +101,7 @@
       <div class="card card-pad" id="addr-card">
         <div class="row between mb-12">
           <span class="t-h3">收货地址</span>
-          <a class="btn btn-ghost btn-xs" href="address.html?from=checkout">地址管理</a>
+          <a class="btn btn-ghost btn-xs" href="address.html?from=checkout">管理</a>
         </div>
         <div id="addr-area"></div>
       </div>
@@ -102,8 +109,8 @@
       <!-- 作品清单 -->
       <div class="card card-pad">
         <div class="row between mb-8">
-          <span class="t-h3">本次要印的作品</span>
-          <a class="btn btn-ghost btn-xs" href="bag.html">调整份数</a>
+          <span class="t-h3">作品</span>
+          <a class="btn btn-ghost btn-xs" href="bag.html">调整</a>
         </div>
         <div id="ck-items"></div>
       </div>
@@ -119,15 +126,15 @@
 
       <!-- 备注 -->
       <div class="card card-pad">
-        <span class="t-h3">订单备注</span>
-        <textarea class="textarea mt-8" id="note" placeholder="有什么要交代的？比如切口位置、包装要求…（选填）" rows="2"></textarea>
+        <span class="t-h3">备注</span>
+        <textarea class="textarea mt-8" id="note" placeholder="选填" rows="2"></textarea>
       </div>
     </section>
 
     <!-- 计价 -->
     <aside class="summary-sticky">
       <div class="card card-pad">
-        <div class="t-h3 mb-12">结算明细</div>
+        <div class="t-h3 mb-12">明细</div>
         <div id="price-lines"></div>
         <div class="price-total mt-12">
           <span class="k">应付</span>
@@ -135,7 +142,6 @@
         </div>
         <div id="hook-slot" class="mt-12"></div>
         <button class="btn btn-primary btn-lg btn-block mt-16" id="btn-submit">提交订单</button>
-        <p class="t-tiny muted center mt-8">提交后进入支付页，超时未支付会自动关闭</p>
       </div>
     </aside>
   </div>
@@ -176,8 +182,8 @@
   }
   function renderStore() {
     var s = storeInfo || fallbackStore();
-    $('#dm-store').innerHTML = '<b>' + UI.escapeHtml(s.name) + '</b><br>' +
-      UI.escapeHtml(s.address) + ' · 营业时间 ' + UI.escapeHtml(s.openHours);
+    $('#dm-store').innerHTML = '<b>' + UI.escapeHtml(s.name) + '</b>' +
+      '<span class="dm-store-sub"> · ' + UI.escapeHtml(s.openHours) + ' · ' + UI.escapeHtml(s.address) + '</span>';
   }
   function renderReady() {
     /* 演示口径：下单 + 2 小时（与云端 ready_at 规则一致） */
@@ -212,8 +218,8 @@
     if (!list.length) {
       $('#addr-area').innerHTML = '<div class="notice notice-sun" style="display:flex;gap:10px">' +
         '<span class="notice-icon">' + UI.icon('alert') + '</span>' +
-        '<span>还没有收货地址，先去添加一个。</span></div>' +
-        '<a class="btn btn-primary btn-block mt-12" href="address.html?from=checkout">去添加地址</a>';
+        '<span>还没有地址。</span></div>' +
+        '<a class="btn btn-primary btn-block mt-12" href="address.html?from=checkout">添加地址</a>';
       return;
     }
     $('#addr-area').innerHTML = '<div class="stack gap-8">' + list.map(function (a) {
@@ -254,7 +260,7 @@
 
     html += available.map(function (c) {
       var ok = Pricing.isValid(c, n) && !(delivery === 'pickup' && c.type === 'freeship');
-      var reason = (delivery === 'pickup' && c.type === 'freeship') ? '自提订单免运费，无需免运费券' : Pricing.invalidReason(c, n);
+      var reason = (delivery === 'pickup' && c.type === 'freeship') ? '自提不收运费' : Pricing.invalidReason(c, n);
       return '<button class="coupon-card' + (selCouponId === c.id ? ' is-active' : '') + '" ' +
         'data-cp="' + c.id + '"' + (ok ? '' : ' disabled') + '>' +
         '<span class="coupon-amount"><b>¥' + c.amount + '</b></span>' +
@@ -307,12 +313,12 @@
     if (cp && !Pricing.isValid(cp, n)) { selCouponId = null; renderCoupons(); cur = quoteCurrent(); cp = cur.cp; q = cur.q; }
 
     var lines =
-      '<div class="price-row"><span class="k">共 ' + n + ' 张（' + bag.length + ' 个设计）</span>' +
+      '<div class="price-row"><span class="k">' + n + ' 张 · ' + bag.length + ' 个设计</span>' +
       '<span class="v">' + Pricing.fmtYuan(q.subtotal) + '</span></div>';
     if (delivery === 'pickup') {
-      lines += '<div class="price-row mt-8"><span class="k">运费（到店自提）</span><span class="v">免运费</span></div>';
+      lines += '<div class="price-row mt-8"><span class="k">运费（自提）</span><span class="v">免</span></div>';
     } else {
-      lines += '<div class="price-row mt-8"><span class="k">运费' + (q.shippingOriginal === 0 ? '（已满 2 张）' : '') + '</span>' +
+      lines += '<div class="price-row mt-8"><span class="k">运费</span>' +
         '<span class="v">' + (q.shipping === 0 ? '包邮' : Pricing.fmtYuan(q.shipping)) + '</span></div>';
     }
 
@@ -326,7 +332,7 @@
 
     var h = Pricing.hook(n);
     /* 自提单已免运费，凑单话术里「包邮」改为通用卖点 */
-    if (h && delivery === 'pickup' && h.sub === '再加一张就包邮了') h.sub = '多印多划算';
+    if (h && delivery === 'pickup' && h.sub === '再加一张就包邮了') h.sub = '越做越便宜';
     $('#hook-slot').innerHTML = h ? '<div class="hook-bar' + (h.strength === 'weak' ? ' is-weak' : '') + '">' +
       UI.icon('sparkles') + '<span class="col">' +
       '<span>' + UI.escapeHtml(h.text) + '</span>' +

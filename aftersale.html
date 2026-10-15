@@ -6,12 +6,22 @@
 <title>申请售后 · SOD</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/theme-v2.css">
 <style>
   .addr-card {
-    display: block; width: 100%; text-align: left; padding: 14px 16px; border-radius: var(--r-md);
-    border: 1.5px solid var(--line-strong); background: #fff; transition: border-color .16s var(--ease), background .16s var(--ease);
+    display: block; width: 100%; text-align: left; padding: 14px 16px; border-radius: var(--r-sm);
+    border: 1.5px solid var(--line-strong); background: #fff; transition: border-color .16s var(--ease);
   }
-  .addr-card.is-active { border-color: var(--brand); background: var(--brand-soft); }
+  .addr-card.is-active { border-color: var(--ink); }
+  /* 移动端：提交按钮吸底 */
+  @media (max-width: 760px) {
+    #btn-go {
+      position: fixed; left: 16px; right: 16px; bottom: calc(10px + env(safe-area-inset-bottom));
+      z-index: 50; height: 50px; font-size: 16px; font-weight: 800;
+      box-shadow: 0 -4px 16px rgba(17, 17, 16, .06);
+    }
+    .card:has(#btn-go) { padding-bottom: 96px; }
+  }
 </style>
 </head>
 <body>
@@ -48,9 +58,9 @@
   }
 
   var kinds = [
-    { k: 'redo',   t: '重新制作', d: '印刷瑕疵 / 色差等问题，免费重做一份' },
-    { k: 'reship', t: '补寄',     d: '包裹丢失 / 破损，免费补寄一次' },
-    { k: 'refund', t: '仅退款',   d: '与商家协商一致后原路退回' }
+    { k: 'redo',   t: '重新制作', d: '印刷瑕疵 / 色差，免费重做' },
+    { k: 'reship', t: '补寄',     d: '丢件 / 破损，免费补寄' },
+    { k: 'refund', t: '仅退款',   d: '协商一致后原路退回' }
   ];
   var kind = 'redo';
   var reason = '';
@@ -74,10 +84,10 @@
         '</div>' +
         '<div class="divider mt-16"></div>' +
         '<div class="t-h3 mt-16">问题描述</div>' +
-        '<textarea class="input mt-8" id="f-reason" rows="4" maxlength="200" placeholder="简单描述问题（选填，会展示给供应商）">' +
+        '<textarea class="input mt-8" id="f-reason" rows="4" maxlength="200" placeholder="选填">' +
           UI.escapeHtml(reason) + '</textarea>' +
-        '<div class="t-tiny muted mt-8">提交后订单转为「售后中」，供应商处理完成后可在订单详情查看结果。</div>' +
-        '<button class="btn btn-primary btn-block mt-16" id="btn-go">提交售后申请</button>' +
+        '<div class="t-tiny muted mt-8">提交后订单转为「售后中」。</div>' +
+        '<button class="btn btn-primary btn-block mt-16" id="btn-go">提交申请</button>' +
       '</div>' +
 
       '<div class="card card-pad mt-16">' +
@@ -105,11 +115,11 @@
           UI.toast('售后申请已提交', 'ok');
           setTimeout(function () { location.href = 'order-detail.html?id=' + order.id; }, 600);
         } else {
-          btn.disabled = false; btn.textContent = '提交售后申请';
+          btn.disabled = false; btn.textContent = '提交申请';
           UI.toast((r && r.msg) || '提交失败', 'err');
         }
       }).catch(function (e) {
-        btn.disabled = false; btn.textContent = '提交售后申请';
+        btn.disabled = false; btn.textContent = '提交申请';
         UI.toast('云端连接失败：' + (e.message || e), 'err');
       });
     });

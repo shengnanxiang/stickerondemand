@@ -83,6 +83,32 @@
     { key: 'orders', label: '我的订单', href: 'orders.html', icon: 'order' }
   ];
 
+  /* 移动端汉堡抽屉导航 · 样式自包含注入（不依赖页面挂 theme-v2，全站挂 nav 页面统一生效） */
+  var DRAWER_CSS =
+    '<style id="drawer-css">' +
+    '.nav-burger, .drawer, .drawer-mask { display: none; }' +
+    '@media (max-width: 760px) {' +
+      '.nav-burger{display:inline-flex;flex-direction:column;justify-content:center;gap:4px;width:40px;height:40px;padding:0 10px;margin-right:4px;border-radius:8px;order:-1}' +
+      '.nav-burger:active{background:#F5F4F2}' +
+      '.burger-line{display:block;width:20px;height:2px;border-radius:2px;background:#111110}' +
+      '.nav-brand>span:last-child{display:none}' +
+      '.nav-links{display:none}' +
+      '.drawer-mask{display:block;position:fixed;inset:0;z-index:90;background:rgba(17,17,16,.45);opacity:0;pointer-events:none;transition:opacity .2s cubic-bezier(.22,.68,.32,1)}' +
+      '.drawer-mask.is-open{opacity:1;pointer-events:auto}' +
+      '.drawer-mask[hidden]{display:none}' +
+      '.drawer{display:flex;flex-direction:column;justify-content:space-between;position:fixed;left:0;top:0;bottom:0;z-index:95;width:min(78vw,300px);background:#fff;transform:translateX(-100%);transition:transform .24s cubic-bezier(.22,.68,.32,1);padding:12px 0 calc(12px + env(safe-area-inset-bottom));box-shadow:0 0 40px rgba(17,17,16,.12)}' +
+      '.drawer.is-open{transform:none}' +
+      '.drawer-nav{display:flex;flex-direction:column;padding:8px}' +
+      '.drawer-link{display:flex;align-items:center;gap:12px;padding:14px;border-radius:8px;font-size:15.5px;font-weight:700;color:#3E3C39;text-decoration:none}' +
+      '.drawer-link.is-active{background:#F5F4F2;color:#111110}' +
+      '.drawer-link .badge-count{position:static;margin-left:auto}' +
+      '.drawer-foot{padding:12px 16px 4px;border-top:1px solid #EDECEA;display:flex;align-items:center;gap:10px}' +
+      '.drawer-user{display:flex;align-items:center;gap:10px;min-width:0;text-decoration:none;color:inherit}' +
+      '.drawer-user .t-sm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+      '.drawer-logout{margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:6px;font-size:13px;font-weight:700;color:#D93025;background:#FCEDEB}' +
+    '}' +
+    '</style>';
+
   function mountNav(active) {
     var root = qs('#nav-root');
     if (!root) return;
@@ -97,7 +123,18 @@
         '</a>';
     }).join('');
 
+    /* 移动端抽屉菜单（≤760px 由 CSS 显示汉堡；桌面隐藏整组） */
+    var drawerLinks = NAV_ITEMS.map(function (it) {
+      var isBag = it.key === 'bag';
+      return '<a href="' + it.href + '" class="drawer-link' + (active === it.key ? ' is-active' : '') + (isBag ? ' bag-btn' : '') + '"' +
+        (active === it.key ? ' aria-current="page"' : '') + '>' +
+        icon(it.icon) + '<span>' + it.label + '</span>' +
+        (isBag ? '<span class="badge-count"' + (n > 0 ? '' : ' hidden') + '>' + n + '</span>' : '') +
+        '</a>';
+    }).join('');
+
     root.innerHTML =
+      DRAWER_CSS +
       '<header class="nav"><div class="container nav-inner">' +
         '<a class="nav-brand" href="home.html"><span class="logo">' + icon('logo') + '</span><span>SOD</span></a>' +
         '<nav class="nav-links">' + links + '</nav>' +
@@ -112,7 +149,21 @@
             '<button class="dropdown-item danger" id="btn-logout">' + icon('logout') + '退出登录</button>' +
           '</div>' +
         '</div>' +
-      '</div></header>';
+        '<button class="nav-burger" id="nav-burger" aria-label="打开菜单" aria-expanded="false">' +
+          '<span class="burger-line"></span><span class="burger-line"></span><span class="burger-line"></span>' +
+        '</button>' +
+      '</div></header>' +
+      '<div class="drawer-mask" id="drawer-mask" hidden></div>' +
+      '<aside class="drawer" id="nav-drawer" aria-hidden="true">' +
+        '<nav class="drawer-nav">' + drawerLinks + '</nav>' +
+        '<div class="drawer-foot">' +
+          '<a class="drawer-user" href="address.html">' +
+            '<span class="avatar">' + escapeHtml(user.avatarText || user.nickname.slice(0, 1)) + '</span>' +
+            '<span class="t-sm strong">' + escapeHtml(user.nickname || '') + '</span>' +
+          '</a>' +
+          '<button class="drawer-logout" id="drawer-logout">' + icon('logout') + '退出登录</button>' +
+        '</div>' +
+      '</aside>';
 
     var btn = qs('#avatar-btn'), menu = qs('#user-menu');
     btn && btn.addEventListener('click', function (e) {
@@ -123,6 +174,33 @@
     document.addEventListener('click', function () { if (menu) menu.hidden = true; });
     var lo = qs('#btn-logout');
     lo && lo.addEventListener('click', function () {
+      Store.auth.logout();
+      location.href = 'userstudio.html';
+    });
+
+    /* ---- 抽屉：开关 / 遮罩点击关闭 / body 滚动锁定 ---- */
+    var burger = qs('#nav-burger'), drawer = qs('#nav-drawer'), mask = qs('#drawer-mask');
+    function setDrawer(open) {
+      drawer.classList.toggle('is-open', open);
+      drawer.setAttribute('aria-hidden', String(!open));
+      mask.hidden = !open;
+      burger.setAttribute('aria-expanded', String(open));
+      burger.setAttribute('aria-label', open ? '关闭菜单' : '打开菜单');
+      document.body.style.overflow = open ? 'hidden' : '';
+    }
+    burger && burger.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setDrawer(!drawer.classList.contains('is-open'));
+    });
+    mask && mask.addEventListener('click', function () { setDrawer(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setDrawer(false); });
+    /* 点抽屉内链接（跳转）也先解锁滚动，避免下一页继承 hidden */
+    drawer && drawer.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('a')) setDrawer(false);
+    });
+    var dlo = qs('#drawer-logout');
+    dlo && dlo.addEventListener('click', function () {
+      setDrawer(false);
       Store.auth.logout();
       location.href = 'userstudio.html';
     });

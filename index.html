@@ -4,144 +4,183 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SOD · 贴纸按需定制</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF7A45'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23FF4D00'/%3E%3Cpath d='M10 11h9l-7 9h8' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/css/app.css">
 <style>
-  .portal { min-height: 100vh; display: grid; grid-template-columns: 1.1fr .9fr; }
+  /* ============ 门户 · 大字极简风 v2 ============ */
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; color: #111110;
+         font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", "Segoe UI", Roboto, Arial, sans-serif;
+         -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .p-wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
 
-  /* 左：品牌区 */
-  .portal-brand {
-    position: relative; overflow: hidden; color: #fff; padding: 56px 60px;
-    background: linear-gradient(150deg, #FF9257 0%, #FF7A45 42%, #EC5A24 100%);
-    display: flex; flex-direction: column; justify-content: center;
-  }
-  .portal-brand::after {
-    content: ''; position: absolute; width: 460px; height: 460px; right: -180px; bottom: -200px;
-    border-radius: 50%; background: rgba(255, 255, 255, .09);
-  }
-  .portal-brand::before {
-    content: ''; position: absolute; width: 240px; height: 240px; right: 40px; top: -110px;
-    border-radius: 50%; background: rgba(255, 255, 255, .10);
-  }
-  .brand-inner { position: relative; z-index: 1; max-width: 480px; }
-  .brand-logo { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 800; letter-spacing: .4px; }
-  .brand-logo .logo { width: 40px; height: 40px; border-radius: 13px; background: rgba(255,255,255,.22); display: grid; place-items: center; }
-  .brand-lead { font-size: 38px; line-height: 1.24; font-weight: 800; letter-spacing: -.8px; margin: 32px 0 14px; }
-  .brand-sub { font-size: 15px; line-height: 1.72; color: rgba(255,255,255,.90); }
-  .brand-tags { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 8px; }
-  .brand-tag { padding: 6px 14px; border-radius: var(--r-full); background: rgba(255,255,255,.18); font-size: 12.5px; font-weight: 600; }
+  /* ---- 顶栏 ---- */
+  .p-top { display: flex; align-items: center; justify-content: space-between; padding: 26px 0; }
+  .p-logo { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 900; letter-spacing: -.3px; }
+  .p-logo-mark { width: 30px; height: 30px; border-radius: 8px; background: #111110; display: grid; place-items: center; color: #fff; }
+  .p-logo-mark svg { width: 15px; height: 15px; }
+  .p-top-cta { font-size: 14px; font-weight: 700; color: #FF4D00; padding: 8px 0 8px 8px; }
+  .p-top-cta:hover { text-decoration: underline; text-underline-offset: 4px; }
 
-  /* 右：入口区 */
-  .portal-side { display: grid; place-items: center; padding: 48px 40px; background: var(--cream-50); }
-  .portal-card { width: 100%; max-width: 420px; }
-  .portal-card h2 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
-  .portal-card .sub { font-size: 13px; color: var(--ink-3); margin-bottom: 24px; }
-
-  .entry {
-    position: relative; display: flex; gap: 14px; align-items: flex-start;
-    padding: 20px; border-radius: var(--r-lg); text-decoration: none;
-    background: #fff; border: 1.5px solid var(--line); margin-bottom: 14px;
-    transition: border-color .16s var(--ease), box-shadow .16s var(--ease), transform .16s var(--ease);
+  /* ---- Hero ---- */
+  .p-hero { padding: 72px 0 64px; }
+  .p-hero h1 {
+    margin: 0; font-size: clamp(48px, 9vw, 92px); line-height: 1.06;
+    font-weight: 900; letter-spacing: -2.5px; color: #111110;
   }
-  .entry:hover { border-color: var(--brand); box-shadow: var(--sh-2); transform: translateY(-2px); }
-  .entry:focus-visible { outline: 3px solid var(--brand-soft); outline-offset: 2px; }
-  .entry-icon {
-    width: 46px; height: 46px; border-radius: 14px; flex: none;
-    display: grid; place-items: center; font-size: 22px;
+  .p-hero h1 em { font-style: normal; color: #FF4D00; }
+  .p-hero p {
+    margin: 28px 0 0; font-size: 19px; line-height: 1.6; color: #7A7772; max-width: 560px;
   }
-  .entry-hot .entry-icon { background: var(--brand-soft); }
-  .entry-site .entry-icon { background: var(--cream-200); }
-  .entry-body h3 { font-size: 16px; font-weight: 800; color: var(--ink); display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-  .entry-body p { font-size: 13px; line-height: 1.66; color: var(--ink-3); }
-  .entry-arrow { position: absolute; right: 18px; top: 24px; color: var(--ink-4); font-size: 15px; transition: transform .16s var(--ease); }
-  .entry:hover .entry-arrow { transform: translateX(3px); color: var(--brand); }
-
-  .pill-new {
-    padding: 2px 9px; border-radius: var(--r-full); font-size: 11px; font-weight: 700;
-    background: var(--brand); color: #fff; letter-spacing: .3px;
+  .p-hero-cta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 40px; }
+  .p-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 58px; padding: 0 32px; border-radius: 10px;
+    font-size: 17px; font-weight: 800; letter-spacing: .2px; white-space: nowrap;
+    transition: transform .12s ease, background .16s ease, color .16s ease, border-color .16s ease;
   }
-  .portal-foot { margin-top: 22px; text-align: center; font-size: 12px; color: var(--ink-4); line-height: 1.7; }
+  .p-btn:active { transform: translateY(1px); }
+  .p-btn-main { background: #FF4D00; color: #fff; }
+  .p-btn-main:hover { background: #E64500; }
+  .p-btn-ghost { border: 1.5px solid #111110; color: #111110; background: #fff; }
+  .p-btn-ghost:hover { background: #111110; color: #fff; }
 
-  @media (max-width: 900px) {
-    .portal { grid-template-columns: 1fr; }
-    .portal-brand { display: none; }
+  /* ---- 数字条 ---- */
+  .p-stats {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+    background: #EDECEA; border: 1px solid #EDECEA; border-radius: 12px; overflow: hidden;
+    margin: 24px 0 0;
+  }
+  .p-stat { background: #fff; padding: 26px 24px; }
+  .p-stat b { display: block; font-size: 30px; font-weight: 900; letter-spacing: -1px; }
+  .p-stat span { display: block; margin-top: 4px; font-size: 13.5px; color: #7A7772; font-weight: 600; }
+  .p-stat b em { font-style: normal; color: #FF4D00; }
+
+  /* ---- 入口区 ---- */
+  .p-entries { padding: 72px 0 88px; }
+  .p-entries-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .p-entries-head h2 { margin: 0; font-size: 30px; font-weight: 900; letter-spacing: -1px; }
+  .p-entries-head span { font-size: 14px; color: #7A7772; font-weight: 600; }
+  .p-entry-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 32px; }
+  .p-entry {
+    display: flex; flex-direction: column; gap: 8px;
+    background: #fff; border: 1px solid #EDECEA; border-radius: 12px;
+    padding: 26px 24px 22px; position: relative;
+    transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+  }
+  .p-entry:hover { border-color: #111110; box-shadow: 0 3px 12px rgba(17,17,16,.06); transform: translateY(-2px); }
+  .p-entry:focus-visible { outline: 3px solid rgba(255,77,0,.25); outline-offset: 2px; }
+  .p-entry h3 { margin: 0; font-size: 21px; font-weight: 900; letter-spacing: -.4px; display: flex; align-items: center; gap: 10px; }
+  .p-entry h3 .p-arrow { margin-left: auto; color: #AEABA5; font-size: 15px; font-weight: 700; transition: transform .16s ease, color .16s ease; }
+  .p-entry:hover .p-arrow { transform: translateX(3px); color: #FF4D00; }
+  .p-entry p { margin: 0; font-size: 14.5px; line-height: 1.65; color: #7A7772; }
+  .p-entry .p-tag {
+    align-self: flex-start; margin-bottom: 2px;
+    font-size: 11.5px; font-weight: 800; letter-spacing: .6px; color: #FF4D00;
+    background: #FFF1EA; border-radius: 999px; padding: 3px 10px;
+  }
+  .p-entry .p-tag.is-ink { color: #111110; background: #F5F4F2; }
+
+  /* ---- 页脚 ---- */
+  .p-foot { border-top: 1px solid #EDECEA; padding: 28px 0 40px; }
+  .p-foot p { margin: 0; font-size: 12.5px; color: #AEABA5; line-height: 1.8; }
+  .p-foot a { color: #7A7772; }
+  .p-foot a:hover { color: #111110; }
+
+  /* ---- 移动端：App 式独立排版（不是缩小的桌面版） ---- */
+  @media (max-width: 760px) {
+    .p-wrap { padding: 0 18px; }
+    .p-top { padding: 18px 0; }
+    .p-top-cta { font-size: 13px; }
+    .p-hero { padding: 36px 0 36px; }
+    .p-hero h1 { font-size: 40px; letter-spacing: -1.2px; line-height: 1.12; }
+    .p-hero p { font-size: 15px; margin-top: 18px; }
+    .p-hero-cta { margin-top: 26px; }
+    .p-btn { height: 52px; padding: 0 24px; font-size: 15.5px; width: 100%; } /* App 式通栏主按钮 */
+    /* 数字卡：竖排紧凑条（小程序点单页心智） */
+    .p-stats { grid-template-columns: 1fr; border: 0; border-radius: 0; background: transparent; margin-top: 30px; }
+    .p-stat { padding: 12px 2px; border-bottom: 1px solid #EDECEA; display: flex; align-items: baseline; gap: 12px; background: transparent; }
+    .p-stat b { font-size: 19px; }
+    .p-stat span { margin-top: 0; font-size: 12.5px; }
+    .p-stat:last-child { border-bottom: 0; }
+    .p-entries { padding: 36px 0 56px; }
+    .p-entries-head h2 { font-size: 24px; }
+    .p-entry-grid { grid-template-columns: 1fr; gap: 10px; margin-top: 20px; }
+    .p-entry { padding: 18px 16px; }
+    .p-entry h3 { font-size: 18px; }
+    .p-foot { padding: 20px 0 32px; }
   }
 </style>
 </head>
 <body>
-<div class="portal">
-  <aside class="portal-brand">
-    <div class="brand-inner">
-      <div class="brand-logo"><span class="logo" id="b-logo"></span><span>SOD</span></div>
-      <h1 class="brand-lead">把你喜欢的东西，<br>变成能贴出去的实体</h1>
-      <p class="brand-sub">Sticker on Demand —— 一张起订的贴纸按需定制平台。这是本项目的工作区门户：从线上定制下单开始，走完「下单 → 制作 → 自提 / 收货」的云端闭环演示。</p>
-      <div class="brand-tags">
-        <span class="brand-tag">AI 抠图</span>
-        <span class="brand-tag">一张起订</span>
-        <span class="brand-tag">按张阶梯价</span>
-        <span class="brand-tag">满 2 张包邮</span>
-        <span class="brand-tag">到场自提</span>
-      </div>
+<div class="p-wrap">
+
+  <header class="p-top">
+    <div class="p-logo"><span class="p-logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h6"/><path d="M15 22l6-6-6-6"/><circle cx="21" cy="16" r="3"/></svg></span>SOD</div>
+    <a class="p-top-cta" href="userstudio.html">去创作 →</a>
+  </header>
+
+  <section class="p-hero">
+    <h1>想要的样子，<br><em>贴</em>出来。</h1>
+    <p>传一张图，做成贴纸。一张起做，今天下单，最快今天取。</p>
+    <div class="p-hero-cta">
+      <a class="p-btn p-btn-main" href="userstudio.html">开始做贴纸</a>
+      <a class="p-btn p-btn-ghost" href="studio/login.html">商家中心</a>
     </div>
-  </aside>
 
-  <main class="portal-side">
-    <div class="portal-card">
-      <h2>选择要进入的部分</h2>
-      <p class="sub">线上闭环主推 · 供应端工作台随时切换</p>
-
-      <!-- 2026-10-12 自提增量：漫展 demo/ 入口摘下（保留代码，切换 data-off 可恢复）
-      <a class="entry entry-hot" href="demo/">
-        <span class="entry-icon" aria-hidden="true">🎬</span>
-        <span class="entry-body">
-          <h3>漫展现场演示 <span class="pill-new">云端实时</span></h3>
-          <p>Phase 0 活动场景全流程演示：扫码 → 授权获客 → 下单支付 → 排队打印 → 凭码取件。GitHub Pages + Supabase 云端同步，任何手机用流量即可参与。</p>
-        </span>
-        <span class="entry-arrow" aria-hidden="true">→</span>
-      </a> -->
-
-      <a class="entry entry-hot" href="userstudio.html">
-        <span class="entry-icon" aria-hidden="true">🛍️</span>
-        <span class="entry-body">
-          <h3>线上定制下单 <span class="pill-new">全链路演示</span></h3>
-          <p>线上闭环全流程：登录 → AI 编辑器 → 结算下单（自提 / 快递）→ 支付取货码 → 供应端接单制作 → 发货 / 到店自提，云端订单全程实时联动。</p>
-        </span>
-        <span class="entry-arrow" aria-hidden="true">→</span>
-      </a>
-
-      <a class="entry entry-site" href="studio/login.html">
-        <span class="entry-icon" aria-hidden="true">🏭</span>
-        <span class="entry-body">
-          <h3>商家工作台 <span class="pill-new">供应端</span></h3>
-          <p>接单 → 制作 → 发货 / 自提交付全流程：订单队列实时派单、耗材预警、收入统计、售后处理，与用户端云端联动。</p>
-        </span>
-        <span class="entry-arrow" aria-hidden="true">→</span>
-      </a>
-
-      <a class="entry entry-site" href="admin/">
-        <span class="entry-icon" aria-hidden="true">📊</span>
-        <span class="entry-body">
-          <h3>平台看板 <span class="pill-new">只读</span></h3>
-          <p>平台发单视角：今日订单 / 待处理 / GMV 统计 + 订单实时流 + 供应商总览，Realtime 实时刷新。</p>
-        </span>
-        <span class="entry-arrow" aria-hidden="true">→</span>
-      </a>
-
-      <p class="portal-foot">
-        SOD 工作区门户 · 演示对应文档：<a class="brand-text" href="documents/FULFILLMENT-JOURNEY.md">FULFILLMENT-JOURNEY.md</a><br>
-        原型说明见 <a class="brand-text" href="documents/">documents/</a>
-      </p>
+    <div class="p-stats">
+      <div class="p-stat"><b><em>1</em> 张起做</b><span>没有起订量</span></div>
+      <div class="p-stat"><b>¥9.9<span style="font-size:15px;font-weight:700"> 起</span></b><span>做得越多越便宜</span></div>
+      <div class="p-stat"><b>2 小时<span style="font-size:15px;font-weight:700"> 可取</span></b><span>或快递 48 小时到家</span></div>
     </div>
-  </main>
+  </section>
+
+  <section class="p-entries">
+    <div class="p-entries-head">
+      <h2>从这里进入</h2>
+      <span>三个入口，同一个站点</span>
+    </div>
+    <div class="p-entry-grid">
+
+      <!-- 主入口：用户端 -->
+      <a class="p-entry" href="userstudio.html">
+        <span class="p-tag">做贴纸</span>
+        <h3>开始做贴纸 <span class="p-arrow">→</span></h3>
+        <p>上传图片，在线排版，下单支付，坐等收货或到店取。</p>
+      </a>
+
+      <!-- 商家端 -->
+      <a class="p-entry" href="studio/login.html">
+        <span class="p-tag is-ink">供应端</span>
+        <h3>商家中心 <span class="p-arrow">→</span></h3>
+        <p>接单、制作、发货、核码交付，订单实时推送到桌面。</p>
+      </a>
+
+      <!-- 平台端：副题 A 版（当前生效）；B 版在下方注释，切换互换即可（待用户拍板） -->
+      <a class="p-entry" href="admin/">
+        <span class="p-tag is-ink">经营视角</span>
+        <h3>平台数据 <span class="p-arrow">→</span></h3>
+        <p>订单与经营，一眼看全。</p>
+      </a>
+      <!-- B 版副题：
+      <a class="p-entry" href="admin/">
+        <span class="p-tag is-ink">经营视角</span>
+        <h3>平台数据 <span class="p-arrow">→</span></h3>
+        <p>全平台订单，实时在这里。</p>
+      </a>
+      -->
+
+    </div>
+  </section>
+
+  <footer class="p-foot">
+    <p>SOD · Sticker on Demand ｜ 文档：<a href="documents/FULFILLMENT-JOURNEY.md">履约旅程</a> · <a href="documents/">全部文档</a></p>
+  </footer>
+
 </div>
 
-<script src="assets/js/store.js"></script>
-<script src="assets/js/ui.js"></script>
-<script>
-(function () {
-  'use strict';
-  document.getElementById('b-logo').innerHTML = UI.icon('logo');
-})();
-</script>
+<!-- 原漫展 demo 入口已按 2026-10-12 决策下线，代码保留备查：
+     <a href="demo/">漫展现场演示</a> -->
 </body>
 </html>
